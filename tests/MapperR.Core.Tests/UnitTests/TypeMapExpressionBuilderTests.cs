@@ -35,11 +35,29 @@ public class TypeMapExpressionBuilderTests
     private sealed class Self
     {
         public Self Child { get; set; }
+        public List<Self> Children { get; set; }
     }
 
     private sealed class SelfDto
     {
         public SelfDto Child { get; set; }
+        public List<SelfDto> Children { get; set; }
+    }
+
+    private sealed class PersonWithAddresses
+    {
+        public List<Address> Addresses { get; set; }
+        public Address[] AddressArray { get; set; }
+        public IEnumerable<Address> AddressSequence { get; set; }
+        public List<int> Scores { get; set; }
+    }
+
+    private sealed class PersonWithAddressesDto
+    {
+        public List<AddressDto> Addresses { get; set; }
+        public AddressDto[] AddressArray { get; set; }
+        public IEnumerable<AddressDto> AddressSequence { get; set; }
+        public HashSet<long> Scores { get; set; }
     }
 
     /// <summary>
@@ -135,5 +153,93 @@ public class TypeMapExpressionBuilderTests
         Should.Throw<InvalidOperationException>(() =>
                 TypeMapExpressionBuilder<Person, PersonDto>.Build(registry))
             .Message.ShouldContain("No mapping profile registered");
+    }
+
+    [Fact]
+    public void Build_maps_a_List_of_nested_objects_element_by_element()
+    {
+        var registry = BuildRegistry(
+            p => p.Map<Address, AddressDto>(),
+            p => p.Map<PersonWithAddresses, PersonWithAddressesDto>()
+                .ForMember(d => d.Addresses, s => s.Addresses));
+        var map = TypeMapExpressionBuilder<PersonWithAddresses, PersonWithAddressesDto>.Build(registry).Compile();
+
+        var result = map(new PersonWithAddresses
+        {
+            Addresses = [new Address { City = "Hanoi" }, new Address { City = "Saigon" }]
+        });
+
+        result.Addresses.Select(a => a.City).ShouldBe(["Hanoi", "Saigon"]);
+    }
+
+    [Fact]
+    public void Build_maps_an_array_of_nested_objects()
+    {
+        var registry = BuildRegistry(
+            p => p.Map<Address, AddressDto>(),
+            p => p.Map<PersonWithAddresses, PersonWithAddressesDto>()
+                .ForMember(d => d.AddressArray, s => s.AddressArray));
+        var map = TypeMapExpressionBuilder<PersonWithAddresses, PersonWithAddressesDto>.Build(registry).Compile();
+
+        var result = map(new PersonWithAddresses { AddressArray = [new Address { City = "Hanoi" }] });
+
+        result.AddressArray.ShouldBeOfType<AddressDto[]>();
+        result.AddressArray.Single().City.ShouldBe("Hanoi");
+    }
+
+    [Fact]
+    public void Build_maps_an_IEnumerable_of_nested_objects()
+    {
+        var registry = BuildRegistry(
+            p => p.Map<Address, AddressDto>(),
+            p => p.Map<PersonWithAddresses, PersonWithAddressesDto>()
+                .ForMember(d => d.AddressSequence, s => s.AddressSequence));
+        var map = TypeMapExpressionBuilder<PersonWithAddresses, PersonWithAddressesDto>.Build(registry).Compile();
+
+        var result = map(new PersonWithAddresses
+        {
+            AddressSequence = new List<Address> { new() { City = "Hanoi" } }
+        });
+
+        result.AddressSequence.Single().City.ShouldBe("Hanoi");
+    }
+
+    [Fact]
+    public void Build_maps_a_collection_with_numeric_element_conversion_into_a_HashSet()
+    {
+        var registry = BuildRegistry(
+            p => p.Map<PersonWithAddresses, PersonWithAddressesDto>()
+                .ForMember(d => d.Scores, s => s.Scores));
+        var map = TypeMapExpressionBuilder<PersonWithAddresses, PersonWithAddressesDto>.Build(registry).Compile();
+
+        var result = map(new PersonWithAddresses { Scores = [1, 2, 3] });
+
+        result.Scores.ShouldBeOfType<HashSet<long>>();
+        result.Scores.ShouldBe([1L, 2L, 3L], ignoreOrder: true);
+    }
+
+    [Fact]
+    public void Build_returns_null_for_a_null_collection_instead_of_throwing()
+    {
+        var registry = BuildRegistry(
+            p => p.Map<Address, AddressDto>(),
+            p => p.Map<PersonWithAddresses, PersonWithAddressesDto>()
+                .ForMember(d => d.Addresses, s => s.Addresses));
+        var map = TypeMapExpressionBuilder<PersonWithAddresses, PersonWithAddressesDto>.Build(registry).Compile();
+
+        var result = map(new PersonWithAddresses { Addresses = null });
+
+        result.Addresses.ShouldBeNull();
+    }
+
+    [Fact]
+    public void Build_throws_when_a_collection_element_references_its_own_type_pair()
+    {
+        var registry = BuildRegistry(
+            p => p.Map<Self, SelfDto>().ForMember(d => d.Children, s => s.Children));
+
+        Should.Throw<InvalidOperationException>(() =>
+                TypeMapExpressionBuilder<Self, SelfDto>.Build(registry))
+            .Message.ShouldContain("unbounded recursion");
     }
 }

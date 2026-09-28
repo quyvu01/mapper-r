@@ -2,7 +2,9 @@
   <Folder Name="/Test/">
     <Project Path="tests/Benchmark/Benchmark.csproj" />
     <Project Path="tests/FrameworkTest/FrameworkTest.csproj" />
+    <Project Path="tests/MapperR.Generator.Tests/MapperR.Generator.Tests.csproj" />
     <Project Path="tests\MapperR.Core.Tests\MapperR.Core.Tests.csproj" />
   </Folder>
+  <Project Path="src/MapperR.Generator/MapperR.Generator.csproj" />
   <Project Path="src\MapperR.Core\MapperR.Core.csproj" />
 </Solution>

@@ -37,6 +37,13 @@ internal static class TypeMapExpressionBuilder<TSource, TDestination>
         WireProfileRegistry registry, ParameterExpression sourceParameter)
     {
         var rawValue = UnwrapAndRebind(member.Path, sourceParameter);
+
+        var sourceElementType = GetElementType(member.SourceMemberType);
+        var destinationElementType = GetElementType(member.DestinationMemberType);
+        if (sourceElementType is not null && destinationElementType is not null)
+            return BuildCollectionValueExpression(currentProfile, member, registry, rawValue, sourceElementType,
+                destinationElementType);
+
         var nestedProfile = registry.Find(member.SourceMemberType, member.DestinationMemberType);
 
         if (nestedProfile is null)
@@ -55,18 +62,115 @@ internal static class TypeMapExpressionBuilder<TSource, TDestination>
     }
 
     /// <summary>
-    /// Recursively builds the nested pair's expression and beta-reduces it into <paramref name="rawValue"/>
+    /// Builds <c>rawValue == null ? null : rawValue.Select(item => &lt;element map&gt;).ToList()/.ToArray()/...</c>
+    /// for a member whose source and destination are both an enumerable of some element type.
+    /// </summary>
+    private static Expression BuildCollectionValueExpression(IWireProfile currentProfile, IMemberProfile member,
+        WireProfileRegistry registry, Expression rawValue, Type sourceElementType, Type destinationElementType)
+    {
+        var elementParameter = Expression.Parameter(sourceElementType, "item");
+        var elementBody = GetElementValueExpression(currentProfile, member, registry, elementParameter,
+            sourceElementType, destinationElementType);
+        var elementLambda = Expression.Lambda(elementBody, elementParameter);
+
+        var selectCall = Expression.Call(typeof(Enumerable), nameof(Enumerable.Select),
+            [sourceElementType, destinationElementType], rawValue, elementLambda);
+
+        var materialized = MaterializeCollection(selectCall, member.DestinationMemberType, destinationElementType);
+
+        return Expression.Condition(
+            Expression.Equal(rawValue, Expression.Constant(null, member.SourceMemberType)),
+            Expression.Default(member.DestinationMemberType),
+            materialized);
+    }
+
+    /// <summary>
+    /// Value expression for a single element inside a mapped collection. Elements are assumed non-null
+    /// (no per-element null guard) — only the collection reference itself is null-checked.
+    /// </summary>
+    private static Expression GetElementValueExpression(IWireProfile currentProfile, IMemberProfile member,
+        WireProfileRegistry registry, ParameterExpression elementParameter, Type sourceElementType,
+        Type destinationElementType)
+    {
+        if (sourceElementType == destinationElementType) return elementParameter;
+
+        var elementProfile = registry.Find(sourceElementType, destinationElementType);
+        if (elementProfile is null) return Expression.Convert(elementParameter, destinationElementType);
+
+        if (elementProfile == currentProfile)
+            throw new InvalidOperationException(
+                $"Member '{member.MemberName}' on {currentProfile.DestinationType.Name} maps a collection of its " +
+                $"own ({currentProfile.SourceType.Name} -> {currentProfile.DestinationType.Name}) type, which " +
+                "would require unbounded recursion. Circular/self-referential mappings are not supported in " +
+                "this version.");
+
+        return GetNestedMapBody(sourceElementType, destinationElementType, registry, elementParameter);
+    }
+
+    /// <summary>
+    /// Returns the element type of an enumerable type (array, <c>List&lt;T&gt;</c>, <c>IEnumerable&lt;T&gt;</c>,
+    /// custom collections implementing it, ...), or <c>null</c> if the type isn't a collection of something
+    /// (strings are deliberately excluded, even though they implement <c>IEnumerable&lt;char&gt;</c>).
+    /// </summary>
+    private static Type GetElementType(Type type)
+    {
+        if (type == typeof(string)) return null;
+        if (type.IsArray) return type.GetElementType();
+
+        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IEnumerable<>))
+            return type.GetGenericArguments()[0];
+
+        var enumerableInterface = type.GetInterfaces()
+            .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>));
+
+        return enumerableInterface?.GetGenericArguments()[0];
+    }
+
+    private static Expression MaterializeCollection(Expression selectCall, Type destinationType,
+        Type destinationElementType)
+    {
+        MethodInfo materializeMethod;
+
+        if (destinationType.IsArray)
+        {
+            materializeMethod = typeof(Enumerable).GetMethod(nameof(Enumerable.ToArray))!
+                .MakeGenericMethod(destinationElementType);
+        }
+        else if (destinationType.IsGenericType && destinationType.GetGenericTypeDefinition() == typeof(HashSet<>))
+        {
+            materializeMethod = typeof(Enumerable).GetMethods()
+                .First(m => m.Name == nameof(Enumerable.ToHashSet) && m.GetParameters().Length == 1)
+                .MakeGenericMethod(destinationElementType);
+        }
+        else
+        {
+            materializeMethod = typeof(Enumerable).GetMethod(nameof(Enumerable.ToList))!
+                .MakeGenericMethod(destinationElementType);
+        }
+
+        var materialized = Expression.Call(materializeMethod, selectCall);
+        return Expression.Convert(materialized, destinationType);
+    }
+
+    /// <summary>
+    /// Recursively builds the nested pair's expression and beta-reduces it into <paramref name="value"/>
     /// (substituting the nested lambda's parameter), instead of invoking a compiled delegate — keeping the
     /// whole tree a single composed expression, so it stays translatable for a future <c>ProjectTo</c>.
     /// </summary>
-    private static Expression InlineNestedMap(Type sourceType, Type destinationType, WireProfileRegistry registry,
-        Expression rawValue)
+    private static Expression GetNestedMapBody(Type sourceType, Type destinationType, WireProfileRegistry registry,
+        Expression value)
     {
         var builderType = typeof(TypeMapExpressionBuilder<,>).MakeGenericType(sourceType, destinationType);
         var buildMethod = builderType.GetMethod(nameof(Build))!;
         var nestedLambda = (LambdaExpression)buildMethod.Invoke(null, [registry])!;
 
-        var substituted = new ReplaceParameterVisitor(nestedLambda.Parameters[0], rawValue).Visit(nestedLambda.Body);
+        return new ReplaceParameterVisitor(nestedLambda.Parameters[0], value).Visit(nestedLambda.Body);
+    }
+
+    private static Expression InlineNestedMap(Type sourceType, Type destinationType, WireProfileRegistry registry,
+        Expression rawValue)
+    {
+        var substituted = GetNestedMapBody(sourceType, destinationType, registry, rawValue);
 
         if (sourceType.IsValueType) return substituted;
 

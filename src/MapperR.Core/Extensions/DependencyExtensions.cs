@@ -8,7 +8,8 @@ namespace MapperR.Core.Extensions;
 
 public static class DependencyExtensions
 {
-    public static void AddMapR(this IServiceCollection services, [NotNull] Action<IMapperConfiguration> options)
+    public static IServiceCollection AddMapR(this IServiceCollection services,
+        [NotNull] Action<IMapperConfiguration> options)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(options);
@@ -17,5 +18,6 @@ public static class DependencyExtensions
         services.AddSingleton<IMapper, Mapper>();
         services.AddSingleton(typeof(IInternalMapper<,>), typeof(InternalMapper<,>));
         services.AddSingleton<RegistryProvider>();
+        return services;
     }
 }

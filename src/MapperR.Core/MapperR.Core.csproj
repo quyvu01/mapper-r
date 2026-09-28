@@ -12,6 +12,8 @@
 
     <ItemGroup>
         <InternalsVisibleTo Include="MapperR.Core.Tests"/>
+        <InternalsVisibleTo Include="MapperR.Generator"/>
+        <InternalsVisibleTo Include="MapperR.Generator.Tests"/>
     </ItemGroup>
 
 </Project>

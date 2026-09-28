@@ -21,6 +21,8 @@ internal sealed class WireProfileRegistry
         EnsureNoCycles();
     }
 
+    public IReadOnlyCollection<IWireProfile> Profiles => _profilesByTypePair.Values;
+
     public IWireProfile Find(Type source, Type destination) =>
         _profilesByTypePair.GetValueOrDefault((source, destination));
 
