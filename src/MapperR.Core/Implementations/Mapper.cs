@@ -24,4 +24,21 @@ internal class Mapper(IServiceProvider serviceProvider) : IMapper
         var internalMapper = serviceProvider.GetRequiredService<IInternalMapper<TSource, TDestination>>();
         return internalMapper.Map(source);
     }
+
+    public TDestination Map<TDestination>(object source, TDestination destination)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        var internalMapperType = _internalMappers.GetOrAdd((source.GetType(), typeof(TDestination)),
+            static x => typeof(IInternalMapper<,>).MakeGenericType(x.SourceType, x.DestinationType));
+        var internalMapper = (AbstractInternalMapper<TDestination>)serviceProvider
+            .GetRequiredService(internalMapperType);
+        var result = internalMapper.MapInternal(source, destination);
+        return result;
+    }
+
+    public TDestination Map<TSource, TDestination>(TSource source, TDestination destination)
+    {
+        var internalMapper = serviceProvider.GetRequiredService<IInternalMapper<TSource, TDestination>>();
+        return internalMapper.Map(source, destination);
+    }
 }

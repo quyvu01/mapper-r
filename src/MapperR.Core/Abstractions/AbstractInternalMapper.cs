@@ -9,4 +9,5 @@ namespace MapperR.Core.Abstractions;
 public abstract class AbstractInternalMapper<TDestination>
 {
     public abstract TDestination MapInternal(object source);
+    public abstract TDestination MapInternal(object source, TDestination destination);
 }
