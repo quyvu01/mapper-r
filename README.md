@@ -4,8 +4,7 @@ A free, open-source object-to-object mapper for .NET, in the spirit of AutoMappe
 code generator (`maprgen`) that turns your mapping profiles into plain C# for zero-reflection, AOT-friendly
 mapping.
 
-> **Status: early development.** Not yet published to NuGet. APIs may change. See
-> [`docs/DESIGN.md`](docs/DESIGN.md) for the design, decisions and open questions.
+> **Status: early development.** Not yet published to NuGet. APIs may change.
 
 ## Why
 
@@ -133,7 +132,6 @@ within ~10% of hand-written code.
 | `tests/MapperR.Generator.Tests` | Printer, generator and runtime-vs-generated equivalence tests |
 | `tests/FrameworkTest` | Small console sample using runtime + generated mappers |
 | `tests/Benchmark` | BenchmarkDotNet comparison against AutoMapper 14 |
-| `docs/DESIGN.md` | Design document and decision log |
 
 ## Build and test
 
@@ -147,8 +145,7 @@ dotnet run -c Release --project tests/Benchmark -- --filter '*'
 ## Roadmap
 
 `ProjectTo<T>()` for `IQueryable`/EF Core, `Condition`, `Ignore`, `ReverseMap`, constructor/record
-mapping, MSBuild integration for `maprgen`, and NuGet packages. Details in
-[`docs/DESIGN.md`](docs/DESIGN.md#open-questions-deferred-from-this-session).
+mapping, MSBuild integration for `maprgen`, and NuGet packages.
 
 ## License
 
