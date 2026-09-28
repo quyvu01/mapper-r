@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/Test/">
+    <Project Path="tests/Benchmark/Benchmark.csproj" />
+    <Project Path="tests/FrameworkTest/FrameworkTest.csproj" />
+    <Project Path="tests\MapperR.Core.Tests\MapperR.Core.Tests.csproj" />
+  </Folder>
+  <Project Path="src\MapperR.Core\MapperR.Core.csproj" />
+</Solution>
