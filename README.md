@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/icon.svg" width="96" height="96" alt="MapperR icon">
+</p>
+
 # MapperR
 
 A free, open-source object-to-object mapper for .NET, in the spirit of AutoMapper — with an optional
