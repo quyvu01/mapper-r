@@ -17,7 +17,18 @@ internal sealed class Address_To_AddressDto_Mapper : global::MapperR.Core.Abstra
         };
     }
 
+    public global::Benchmark.Models.AddressDto Map(global::Benchmark.Models.Address source, global::Benchmark.Models.AddressDto destination)
+    {
+        global::System.ArgumentNullException.ThrowIfNull(source);
+        global::System.ArgumentNullException.ThrowIfNull(destination);
+        destination.Street = source.Street;
+        destination.City = source.City;
+        destination.Country = source.Country;
+        return destination;
+    }
+
     public override global::Benchmark.Models.AddressDto MapInternal(object source) => Map((global::Benchmark.Models.Address)source);
+    public override global::Benchmark.Models.AddressDto MapInternal(object source, global::Benchmark.Models.AddressDto destination) => Map((global::Benchmark.Models.Address)source, destination);
 }
 
 internal sealed class Customer_To_CustomerDto_Mapper : global::MapperR.Core.Abstractions.AbstractInternalMapper<global::Benchmark.Models.CustomerDto>, global::MapperR.Core.Abstractions.IInternalMapper<global::Benchmark.Models.Customer, global::Benchmark.Models.CustomerDto>
@@ -37,7 +48,22 @@ internal sealed class Customer_To_CustomerDto_Mapper : global::MapperR.Core.Abst
         };
     }
 
+    public global::Benchmark.Models.CustomerDto Map(global::Benchmark.Models.Customer source, global::Benchmark.Models.CustomerDto destination)
+    {
+        global::System.ArgumentNullException.ThrowIfNull(source);
+        global::System.ArgumentNullException.ThrowIfNull(destination);
+        destination.Id = source.Id;
+        destination.Name = source.Name;
+        destination.Email = source.Email;
+        destination.Age = source.Age;
+        destination.IsActive = source.IsActive;
+        destination.Balance = source.Balance;
+        destination.CreatedAt = source.CreatedAt;
+        return destination;
+    }
+
     public override global::Benchmark.Models.CustomerDto MapInternal(object source) => Map((global::Benchmark.Models.Customer)source);
+    public override global::Benchmark.Models.CustomerDto MapInternal(object source, global::Benchmark.Models.CustomerDto destination) => Map((global::Benchmark.Models.Customer)source, destination);
 }
 
 internal sealed class Order_To_OrderDto_Mapper : global::MapperR.Core.Abstractions.AbstractInternalMapper<global::Benchmark.Models.OrderDto>, global::MapperR.Core.Abstractions.IInternalMapper<global::Benchmark.Models.Order, global::Benchmark.Models.OrderDto>
@@ -69,7 +95,68 @@ internal sealed class Order_To_OrderDto_Mapper : global::MapperR.Core.Abstractio
         };
     }
 
+    public global::Benchmark.Models.OrderDto Map(global::Benchmark.Models.Order source, global::Benchmark.Models.OrderDto destination)
+    {
+        global::System.ArgumentNullException.ThrowIfNull(source);
+        global::System.ArgumentNullException.ThrowIfNull(destination);
+        global::Benchmark.Models.Customer nested = source.Customer;
+        if (nested == null)
+        {
+            destination.Customer = default(global::Benchmark.Models.CustomerDto);
+        }
+        else if (destination.Customer == null)
+        {
+            destination.Customer = new global::Benchmark.Models.CustomerDto
+            {
+                Id = nested.Id,
+                Name = nested.Name,
+                Email = nested.Email,
+                Age = nested.Age,
+                IsActive = nested.IsActive,
+                Balance = nested.Balance,
+                CreatedAt = nested.CreatedAt
+            };
+        }
+        else
+        {
+            destination.Customer.Id = nested.Id;
+            destination.Customer.Name = nested.Name;
+            destination.Customer.Email = nested.Email;
+            destination.Customer.Age = nested.Age;
+            destination.Customer.IsActive = nested.IsActive;
+            destination.Customer.Balance = nested.Balance;
+            destination.Customer.CreatedAt = nested.CreatedAt;
+        }
+
+        global::Benchmark.Models.Address nested1 = source.ShippingAddress;
+        if (nested1 == null)
+        {
+            destination.ShippingAddress = default(global::Benchmark.Models.AddressDto);
+        }
+        else if (destination.ShippingAddress == null)
+        {
+            destination.ShippingAddress = new global::Benchmark.Models.AddressDto
+            {
+                Street = nested1.Street,
+                City = nested1.City,
+                Country = nested1.Country
+            };
+        }
+        else
+        {
+            destination.ShippingAddress.Street = nested1.Street;
+            destination.ShippingAddress.City = nested1.City;
+            destination.ShippingAddress.Country = nested1.Country;
+        }
+
+        destination.Lines = (source.Lines == null) ? default(global::System.Collections.Generic.List<global::Benchmark.Models.OrderLineDto>) : ((global::System.Collections.Generic.List<global::Benchmark.Models.OrderLineDto>)(global::System.Linq.Enumerable.ToList<global::Benchmark.Models.OrderLineDto>(global::System.Linq.Enumerable.Select<global::Benchmark.Models.OrderLine, global::Benchmark.Models.OrderLineDto>(source.Lines, (global::Benchmark.Models.OrderLine item) => new global::Benchmark.Models.OrderLineDto { ProductId = item.ProductId, ProductName = item.ProductName, Quantity = item.Quantity, UnitPrice = item.UnitPrice }))));
+        destination.Id = source.Id;
+        destination.PlacedAt = source.PlacedAt;
+        return destination;
+    }
+
     public override global::Benchmark.Models.OrderDto MapInternal(object source) => Map((global::Benchmark.Models.Order)source);
+    public override global::Benchmark.Models.OrderDto MapInternal(object source, global::Benchmark.Models.OrderDto destination) => Map((global::Benchmark.Models.Order)source, destination);
 }
 
 internal sealed class OrderLine_To_OrderLineDto_Mapper : global::MapperR.Core.Abstractions.AbstractInternalMapper<global::Benchmark.Models.OrderLineDto>, global::MapperR.Core.Abstractions.IInternalMapper<global::Benchmark.Models.OrderLine, global::Benchmark.Models.OrderLineDto>
@@ -86,7 +173,19 @@ internal sealed class OrderLine_To_OrderLineDto_Mapper : global::MapperR.Core.Ab
         };
     }
 
+    public global::Benchmark.Models.OrderLineDto Map(global::Benchmark.Models.OrderLine source, global::Benchmark.Models.OrderLineDto destination)
+    {
+        global::System.ArgumentNullException.ThrowIfNull(source);
+        global::System.ArgumentNullException.ThrowIfNull(destination);
+        destination.ProductId = source.ProductId;
+        destination.ProductName = source.ProductName;
+        destination.Quantity = source.Quantity;
+        destination.UnitPrice = source.UnitPrice;
+        return destination;
+    }
+
     public override global::Benchmark.Models.OrderLineDto MapInternal(object source) => Map((global::Benchmark.Models.OrderLine)source);
+    public override global::Benchmark.Models.OrderLineDto MapInternal(object source, global::Benchmark.Models.OrderLineDto destination) => Map((global::Benchmark.Models.OrderLine)source, destination);
 }
 
 public static class MapperRGeneratedExtensions

@@ -7,14 +7,15 @@ internal class InternalMapper<TSource, TDestination> : AbstractInternalMapper<TD
     where TDestination : new()
 {
     private readonly Lazy<Func<TSource, TDestination>> _compiledMap;
-    private readonly Lazy<Action<TSource, TDestination>> _mapUpdate;
+    private readonly Lazy<Func<TSource, TDestination, TDestination>> _mapUpdate;
 
     public InternalMapper(RegistryProvider registryProvider)
     {
         var wireProfileRegistry = registryProvider.ProfileRegistry;
         var expression = TypeMapExpressionBuilder<TSource, TDestination>.Build(wireProfileRegistry);
         _compiledMap = new Lazy<Func<TSource, TDestination>>(expression.Compile);
-        _mapUpdate = new Lazy<Action<TSource, TDestination>>(); // Add additional action to set destination value
+        _mapUpdate = new Lazy<Func<TSource, TDestination, TDestination>>(
+            () => TypeMapExpressionBuilder<TSource, TDestination>.BuildUpdate(wireProfileRegistry).Compile());
     }
 
     public TDestination Map(TSource source)
@@ -26,8 +27,8 @@ internal class InternalMapper<TSource, TDestination> : AbstractInternalMapper<TD
     public TDestination Map(TSource source, TDestination destination)
     {
         ArgumentNullException.ThrowIfNull(source);
-        _mapUpdate.Value.Invoke(source, destination);
-        return destination;
+        ArgumentNullException.ThrowIfNull(destination);
+        return _mapUpdate.Value.Invoke(source, destination);
     }
 
     public override TDestination MapInternal(object source)

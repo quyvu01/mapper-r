@@ -97,4 +97,31 @@ public class InternalMapperTests
         Should.Throw<InvalidOperationException>(() => new InternalMapper<Person, PersonDto>(registryProvider))
             .Message.ShouldContain("No mapping profile registered");
     }
+
+    [Fact]
+    public void Map_onto_an_existing_destination_updates_and_returns_that_instance()
+    {
+        var registryProvider = BuildRegistryProvider(p => p.Map<Person, PersonDto>());
+        var internalMapper = new InternalMapper<Person, PersonDto>(registryProvider);
+        var destination = new PersonDto { Name = "old", Age = 1 };
+
+        var result = internalMapper.Map(new Person { Name = "Alice", Age = 30 }, destination);
+        var viaBridge = ((AbstractInternalMapper<PersonDto>)internalMapper)
+            .MapInternal(new Person { Name = "Bob", Age = 40 }, destination);
+
+        result.ShouldBeSameAs(destination);
+        viaBridge.ShouldBeSameAs(destination);
+        destination.Name.ShouldBe("Bob");
+        destination.Age.ShouldBe(40L);
+    }
+
+    [Fact]
+    public void Map_onto_an_existing_destination_throws_when_source_or_destination_is_null()
+    {
+        var registryProvider = BuildRegistryProvider(p => p.Map<Person, PersonDto>());
+        var internalMapper = new InternalMapper<Person, PersonDto>(registryProvider);
+
+        Should.Throw<ArgumentNullException>(() => internalMapper.Map(null!, new PersonDto()));
+        Should.Throw<ArgumentNullException>(() => internalMapper.Map(new Person(), null!));
+    }
 }

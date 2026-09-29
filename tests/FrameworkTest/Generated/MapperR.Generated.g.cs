@@ -15,7 +15,16 @@ internal sealed class Address_To_AddressResponse_Mapper : global::MapperR.Core.A
         };
     }
 
+    public global::FrameworkTest.Dtos.AddressResponse Map(global::FrameworkTest.Entities.Address source, global::FrameworkTest.Dtos.AddressResponse destination)
+    {
+        global::System.ArgumentNullException.ThrowIfNull(source);
+        global::System.ArgumentNullException.ThrowIfNull(destination);
+        destination.City = source.City;
+        return destination;
+    }
+
     public override global::FrameworkTest.Dtos.AddressResponse MapInternal(object source) => Map((global::FrameworkTest.Entities.Address)source);
+    public override global::FrameworkTest.Dtos.AddressResponse MapInternal(object source, global::FrameworkTest.Dtos.AddressResponse destination) => Map((global::FrameworkTest.Entities.Address)source, destination);
 }
 
 internal sealed class Person_To_PersonResponse_Mapper : global::MapperR.Core.Abstractions.AbstractInternalMapper<global::FrameworkTest.Dtos.PersonResponse>, global::MapperR.Core.Abstractions.IInternalMapper<global::FrameworkTest.Entities.Person, global::FrameworkTest.Dtos.PersonResponse>
@@ -33,7 +42,33 @@ internal sealed class Person_To_PersonResponse_Mapper : global::MapperR.Core.Abs
         };
     }
 
+    public global::FrameworkTest.Dtos.PersonResponse Map(global::FrameworkTest.Entities.Person source, global::FrameworkTest.Dtos.PersonResponse destination)
+    {
+        global::System.ArgumentNullException.ThrowIfNull(source);
+        global::System.ArgumentNullException.ThrowIfNull(destination);
+        destination.Name = string.Format("{0}-SomeOtherValue", source.Name);
+        global::FrameworkTest.Entities.Address nested = source.Address;
+        if (nested == null)
+        {
+            destination.Address = default(global::FrameworkTest.Dtos.AddressResponse);
+        }
+        else if (destination.Address == null)
+        {
+            destination.Address = new global::FrameworkTest.Dtos.AddressResponse
+            {
+                City = nested.City
+            };
+        }
+        else
+        {
+            destination.Address.City = nested.City;
+        }
+
+        return destination;
+    }
+
     public override global::FrameworkTest.Dtos.PersonResponse MapInternal(object source) => Map((global::FrameworkTest.Entities.Person)source);
+    public override global::FrameworkTest.Dtos.PersonResponse MapInternal(object source, global::FrameworkTest.Dtos.PersonResponse destination) => Map((global::FrameworkTest.Entities.Person)source, destination);
 }
 
 public static class MapperRGeneratedExtensions

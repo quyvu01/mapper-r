@@ -43,6 +43,30 @@ public class MapperCodeGeneratorTests
 
         JsonSerializer.Serialize(mapper.Map<Person, PersonDto>(person)).ShouldBe(JsonSerializer.Serialize(runtime(person)));
         JsonSerializer.Serialize(mapper.Map<PersonDto>(person)).ShouldBe(JsonSerializer.Serialize(runtime(person)));
+
+        // Update form, generated vs runtime: Scores is not part of the profile so it must survive, and the
+        // existing nested Address must be updated in place rather than replaced.
+        var runtimeUpdate = TypeMapExpressionBuilder<Person, PersonDto>.BuildUpdate(registry).Compile();
+        PersonDto Target() => new() { Age = 99, Scores = [7], Address = new AddressDto { City = "old" } };
+        var expected = JsonSerializer.Serialize(runtimeUpdate(person, Target()));
+        var typedTarget = Target();
+        var untypedTarget = Target();
+        var typedAddress = typedTarget.Address;
+        var untypedAddress = untypedTarget.Address;
+
+        mapper.Map(person, typedTarget).ShouldBeSameAs(typedTarget);
+        mapper.Map<PersonDto>((object)person, untypedTarget).ShouldBeSameAs(untypedTarget);
+        JsonSerializer.Serialize(typedTarget).ShouldBe(expected);
+        JsonSerializer.Serialize(untypedTarget).ShouldBe(expected);
+        typedTarget.Scores.ShouldBe([7L]);
+        typedTarget.Address.ShouldBeSameAs(typedAddress);
+        untypedTarget.Address.ShouldBeSameAs(untypedAddress);
+        typedAddress.City.ShouldBe("Hanoi");
+
+        // Source without an address: both engines clear the nested object.
+        var withoutAddress = new Person { Name = "Bob" };
+        mapper.Map(withoutAddress, typedTarget).Address.ShouldBeNull();
+        JsonSerializer.Serialize(typedTarget).ShouldBe(JsonSerializer.Serialize(runtimeUpdate(withoutAddress, Target())));
     }
 
     [Fact]

@@ -38,16 +38,23 @@ internal static class MapperCodeGenerator
         {
             try
             {
-                var expression = BuildExpression(profile, registry);
+                var map = InvokeBuilder(profile, registry, nameof(TypeMapExpressionBuilder<object, object>.Build));
+                var update = InvokeBuilder(profile, registry,
+                    nameof(TypeMapExpressionBuilder<object, object>.BuildUpdate));
+
                 var printer = new CSharpExpressionPrinter(targetAssembly);
                 var sourceType = printer.PrintType(profile.SourceType);
                 var destinationType = printer.PrintType(profile.DestinationType);
-                var body = printer.PrintBody(expression);
-                var parameter = printer.GetParameterName(expression.Parameters[0]);
+                var mapMethod = new PrintedLambda(printer.PrintBody(map), printer.GetParameterName(map.Parameters[0]));
+
+                var updatePrinter = new CSharpExpressionPrinter(targetAssembly);
+                var updateMethod = new PrintedLambda(updatePrinter.PrintUpdateBody(update),
+                    updatePrinter.GetParameterName(update.Parameters[0]),
+                    updatePrinter.GetParameterName(update.Parameters[1]));
 
                 var className = UniqueClassName(profile, usedClassNames);
                 mappers.Add((className, sourceType, destinationType,
-                    MapperClass(className, sourceType, destinationType, parameter, body)));
+                    MapperClass(className, sourceType, destinationType, mapMethod, updateMethod)));
             }
             catch (UnsupportedExpressionException exception)
             {
@@ -62,8 +69,12 @@ internal static class MapperCodeGenerator
         return new GenerationResult(Format(FileText(@namespace, mappers)), mappers.Count, skipped);
     }
 
-    /// <summary>Invokes <c>TypeMapExpressionBuilder&lt;TSource,TDestination&gt;.Build</c> for runtime-known types.</summary>
-    private static LambdaExpression BuildExpression(IWireProfile profile, WireProfileRegistry registry)
+    /// <summary>
+    /// Invokes <c>TypeMapExpressionBuilder&lt;TSource,TDestination&gt;.Build</c> or <c>.BuildUpdate</c> for
+    /// runtime-known types.
+    /// </summary>
+    private static LambdaExpression InvokeBuilder(IWireProfile profile, WireProfileRegistry registry,
+        string methodName)
     {
         Type builderType;
         try
@@ -78,8 +89,7 @@ internal static class MapperCodeGenerator
 
         try
         {
-            return (LambdaExpression)builderType.GetMethod(nameof(TypeMapExpressionBuilder<object, object>.Build))!
-                .Invoke(null, [registry])!;
+            return (LambdaExpression)builderType.GetMethod(methodName)!.Invoke(null, [registry])!;
         }
         catch (TargetInvocationException exception) when (exception.InnerException is InvalidOperationException inner)
         {
@@ -98,20 +108,33 @@ internal static class MapperCodeGenerator
     private static string Sanitize(string name) =>
         new([.. name.Select(character => char.IsLetterOrDigit(character) ? character : '_')]);
 
-    private static string MapperClass(string className, string sourceType, string destinationType, string parameter,
-        string body) =>
+    /// <param name="Body">An expression for the map form; statements ending in a return for the update form.</param>
+    private sealed record PrintedLambda(string Body, string Source, string Destination = null);
+
+    private static string MapperClass(string className, string sourceType, string destinationType,
+        PrintedLambda map, PrintedLambda update) =>
         $$"""
           internal sealed class {{className}}
               : global::MapperR.Core.Abstractions.AbstractInternalMapper<{{destinationType}}>,
                 global::MapperR.Core.Abstractions.IInternalMapper<{{sourceType}}, {{destinationType}}>
           {
-              public {{destinationType}} Map({{sourceType}} {{parameter}})
+              public {{destinationType}} Map({{sourceType}} {{map.Source}})
               {
-                  global::System.ArgumentNullException.ThrowIfNull({{parameter}});
-                  return {{body}};
+                  global::System.ArgumentNullException.ThrowIfNull({{map.Source}});
+                  return {{map.Body}};
               }
 
-              public override {{destinationType}} MapInternal(object {{parameter}}) => Map(({{sourceType}}){{parameter}});
+              public {{destinationType}} Map({{sourceType}} {{update.Source}}, {{destinationType}} {{update.Destination}})
+              {
+                  global::System.ArgumentNullException.ThrowIfNull({{update.Source}});
+                  global::System.ArgumentNullException.ThrowIfNull({{update.Destination}});
+                  {{update.Body}}
+              }
+
+              public override {{destinationType}} MapInternal(object {{map.Source}}) => Map(({{sourceType}}){{map.Source}});
+
+              public override {{destinationType}} MapInternal(object {{update.Source}}, {{destinationType}} {{update.Destination}}) =>
+                  Map(({{sourceType}}){{update.Source}}, {{update.Destination}});
           }
           """;
 

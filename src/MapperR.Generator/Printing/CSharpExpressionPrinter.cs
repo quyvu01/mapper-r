@@ -38,6 +38,98 @@ internal sealed class CSharpExpressionPrinter(Assembly targetAssembly)
 
     public string GetParameterName(ParameterExpression parameter) => Identifier(_parameterNames[parameter]);
 
+    /// <summary>
+    /// Prints the body of an update lambda built by <c>TypeMapExpressionBuilder.BuildUpdate</c> —
+    /// <c>{ statements; destination }</c> — as C# statements ending in <c>return destination;</c>.
+    /// </summary>
+    public string PrintUpdateBody(LambdaExpression lambda)
+    {
+        foreach (var parameter in lambda.Parameters) DeclareParameter(parameter);
+
+        var block = (BlockExpression)lambda.Body;
+        var builder = new StringBuilder();
+        foreach (var statement in block.Expressions.SkipLast(1)) PrintStatement(statement, builder);
+
+        return builder.Append($"return {Print(block.Result)};").ToString();
+    }
+
+    /// <summary>
+    /// Statement subset produced by the update builder: blocks with local variables, assignments and
+    /// <c>if/else</c> (a void conditional).
+    /// </summary>
+    private void PrintStatement(Expression node, StringBuilder builder)
+    {
+        switch (node)
+        {
+            case DefaultExpression empty when empty.Type == typeof(void):
+                return;
+
+            // No braces needed: every declared local already has a unique name within the printed method.
+            // Locals assigned directly in the block are declared at that assignment (`T x = value;`), any other
+            // local up front.
+            case BlockExpression block:
+                var declaredAtAssignment = block.Expressions
+                    .Select(statement => statement is BinaryExpression
+                        { NodeType: ExpressionType.Assign, Left: ParameterExpression local }
+                        ? local
+                        : null)
+                    .Where(local => local is not null && block.Variables.Contains(local))
+                    .ToHashSet();
+
+                foreach (var variable in block.Variables.Where(variable => !declaredAtAssignment.Contains(variable)))
+                    builder.Append($"{PrintType(variable.Type)} {DeclareParameter(variable)}; ");
+
+                foreach (var statement in block.Expressions)
+                {
+                    if (statement is BinaryExpression { NodeType: ExpressionType.Assign, Left: ParameterExpression local } assign
+                        && declaredAtAssignment.Remove(local))
+                    {
+                        var value = Print(assign.Right);
+                        builder.Append($"{PrintType(local.Type)} {DeclareParameter(local)} = {value}; ");
+                        continue;
+                    }
+
+                    PrintStatement(statement, builder);
+                }
+
+                return;
+
+            case BinaryExpression { NodeType: ExpressionType.Assign } assignment:
+                builder.Append($"{PrintAssignmentTarget(assignment.Left)} = {Print(assignment.Right)}; ");
+                return;
+
+            case ConditionalExpression conditional when conditional.Type == typeof(void):
+                builder.Append($"if ({Print(conditional.Test)}) {{ ");
+                PrintStatement(conditional.IfTrue, builder);
+                builder.Append("} ");
+
+                if (conditional.IfFalse is ConditionalExpression elseIf && elseIf.Type == typeof(void))
+                {
+                    builder.Append("else ");
+                    PrintStatement(elseIf, builder);
+                }
+                else if (conditional.IfFalse is not DefaultExpression noElse || noElse.Type != typeof(void))
+                {
+                    builder.Append("else { ");
+                    PrintStatement(conditional.IfFalse, builder);
+                    builder.Append("} ");
+                }
+
+                return;
+
+            default:
+                throw new UnsupportedExpressionException($"statement '{node.NodeType}' is not supported");
+        }
+    }
+
+    private string PrintAssignmentTarget(Expression target) => target switch
+    {
+        ParameterExpression parameter => PrintParameter(parameter),
+        MemberExpression { Expression: not null } member =>
+            $"{Wrap(member.Expression)}.{Identifier(EnsureWritable(member.Member).Name)}",
+        _ => throw new UnsupportedExpressionException($"assignment to '{target.NodeType}' is not supported")
+    };
+
     public string PrintType(Type type)
     {
         if (!IsAccessible(type))

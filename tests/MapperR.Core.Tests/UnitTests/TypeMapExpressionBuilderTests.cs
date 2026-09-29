@@ -16,6 +16,29 @@ public class TypeMapExpressionBuilderTests
     private sealed class AddressDto
     {
         public string City { get; set; }
+        public string Note { get; set; }
+    }
+
+    private sealed class Customer
+    {
+        public string Name { get; set; }
+        public Address Address { get; set; }
+    }
+
+    private sealed class CustomerDto
+    {
+        public string Name { get; set; }
+        public AddressDto Address { get; set; }
+    }
+
+    private sealed class Order
+    {
+        public Customer Customer { get; set; }
+    }
+
+    private sealed class OrderDto
+    {
+        public CustomerDto Customer { get; set; }
     }
 
     private sealed class Person
@@ -30,6 +53,7 @@ public class TypeMapExpressionBuilderTests
         public string Name { get; set; }
         public long Age { get; set; }
         public AddressDto Address { get; set; }
+        public string Nickname { get; set; }
     }
 
     private sealed class Self
@@ -241,5 +265,106 @@ public class TypeMapExpressionBuilderTests
         Should.Throw<InvalidOperationException>(() =>
                 TypeMapExpressionBuilder<Self, SelfDto>.Build(registry))
             .Message.ShouldContain("unbounded recursion");
+    }
+
+    [Fact]
+    public void BuildUpdate_assigns_mapped_members_onto_the_existing_instance_and_keeps_unmapped_ones()
+    {
+        var registry = BuildRegistry(p => p.Map<Person, PersonDto>().ForMember(d => d.Name, s => $"{s.Name}!"));
+        var update = TypeMapExpressionBuilder<Person, PersonDto>.BuildUpdate(registry).Compile();
+        var destination = new PersonDto { Name = "old", Age = 1, Nickname = "keep me" };
+
+        var result = update(new Person { Name = "Alice", Age = 30 }, destination);
+
+        result.ShouldBeSameAs(destination);
+        destination.Name.ShouldBe("Alice!");
+        destination.Age.ShouldBe(30L);
+        destination.Nickname.ShouldBe("keep me");
+    }
+
+    [Fact]
+    public void BuildUpdate_updates_an_existing_nested_object_in_place()
+    {
+        var registry = BuildRegistry(
+            p => p.Map<Address, AddressDto>(),
+            p => p.Map<Person, PersonDto>().ForMember(d => d.Address, s => s.Address));
+        var update = TypeMapExpressionBuilder<Person, PersonDto>.BuildUpdate(registry).Compile();
+        var existingAddress = new AddressDto { City = "old", Note = "keep me" };
+        var destination = new PersonDto { Address = existingAddress };
+
+        update(new Person { Address = new Address { City = "Hanoi" } }, destination);
+
+        destination.Address.ShouldBeSameAs(existingAddress);
+        existingAddress.City.ShouldBe("Hanoi");
+        existingAddress.Note.ShouldBe("keep me");
+    }
+
+    [Fact]
+    public void BuildUpdate_creates_the_nested_object_when_the_destination_has_none()
+    {
+        var registry = BuildRegistry(
+            p => p.Map<Address, AddressDto>(),
+            p => p.Map<Person, PersonDto>().ForMember(d => d.Address, s => s.Address));
+        var update = TypeMapExpressionBuilder<Person, PersonDto>.BuildUpdate(registry).Compile();
+        var destination = new PersonDto { Address = null };
+
+        update(new Person { Address = new Address { City = "Hanoi" } }, destination);
+
+        destination.Address.ShouldNotBeNull();
+        destination.Address.City.ShouldBe("Hanoi");
+    }
+
+    [Fact]
+    public void BuildUpdate_sets_the_nested_object_to_null_when_the_source_has_none()
+    {
+        var registry = BuildRegistry(
+            p => p.Map<Address, AddressDto>(),
+            p => p.Map<Person, PersonDto>().ForMember(d => d.Address, s => s.Address));
+        var update = TypeMapExpressionBuilder<Person, PersonDto>.BuildUpdate(registry).Compile();
+        var destination = new PersonDto { Address = new AddressDto { City = "old" } };
+
+        update(new Person { Address = null }, destination);
+
+        destination.Address.ShouldBeNull();
+    }
+
+    [Fact]
+    public void BuildUpdate_keeps_references_through_several_nesting_levels()
+    {
+        var registry = BuildRegistry(
+            p => p.Map<Address, AddressDto>(),
+            p => p.Map<Customer, CustomerDto>().ForMember(d => d.Address, s => s.Address),
+            p => p.Map<Order, OrderDto>().ForMember(d => d.Customer, s => s.Customer));
+        var update = TypeMapExpressionBuilder<Order, OrderDto>.BuildUpdate(registry).Compile();
+        var existingAddress = new AddressDto { City = "old", Note = "keep me" };
+        var existingCustomer = new CustomerDto { Name = "old", Address = existingAddress };
+        var destination = new OrderDto { Customer = existingCustomer };
+
+        update(new Order { Customer = new Customer { Name = "Alice", Address = new Address { City = "Hanoi" } } },
+            destination);
+
+        destination.Customer.ShouldBeSameAs(existingCustomer);
+        existingCustomer.Name.ShouldBe("Alice");
+        existingCustomer.Address.ShouldBeSameAs(existingAddress);
+        existingAddress.City.ShouldBe("Hanoi");
+        existingAddress.Note.ShouldBe("keep me");
+    }
+
+    [Fact]
+    public void BuildUpdate_still_replaces_collections()
+    {
+        var registry = BuildRegistry(
+            p => p.Map<Address, AddressDto>(),
+            p => p.Map<PersonWithAddresses, PersonWithAddressesDto>()
+                .ForMember(d => d.Addresses, s => s.Addresses));
+        var update = TypeMapExpressionBuilder<PersonWithAddresses, PersonWithAddressesDto>.BuildUpdate(registry)
+            .Compile();
+        var existingList = new List<AddressDto> { new() { City = "old" } };
+        var destination = new PersonWithAddressesDto { Addresses = existingList };
+
+        update(new PersonWithAddresses { Addresses = [new Address { City = "Hanoi" }] }, destination);
+
+        destination.Addresses.ShouldNotBeSameAs(existingList);
+        destination.Addresses.Single().City.ShouldBe("Hanoi");
     }
 }
