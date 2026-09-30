@@ -114,8 +114,8 @@ internal sealed class Order_To_OrderDto_Mapper : global::MapperR.Core.Abstractio
     {
     }
 
-    public global::Benchmark.Models.OrderDto Map(global::Benchmark.Models.Order source) => Map(source, CreateContext());
-    public global::Benchmark.Models.OrderDto Map(global::Benchmark.Models.Order source, global::Benchmark.Models.OrderDto destination) => Map(source, destination, CreateContext());
+    public global::Benchmark.Models.OrderDto Map(global::Benchmark.Models.Order source) => Map(source, SharedContext);
+    public global::Benchmark.Models.OrderDto Map(global::Benchmark.Models.Order source, global::Benchmark.Models.OrderDto destination) => Map(source, destination, SharedContext);
     public global::Benchmark.Models.OrderDto Map(global::Benchmark.Models.Order source, global::MapperR.Core.Abstractions.MappingContext context)
     {
         global::System.ArgumentNullException.ThrowIfNull(source);
@@ -216,8 +216,8 @@ internal sealed class Address_To_AddressDto_Mapper2 : global::MapperR.Core.Abstr
     {
     }
 
-    public global::Benchmark.Models.Organisation.AddressDto Map(global::Benchmark.Models.Organisation.Address source) => Map(source, CreateContext());
-    public global::Benchmark.Models.Organisation.AddressDto Map(global::Benchmark.Models.Organisation.Address source, global::Benchmark.Models.Organisation.AddressDto destination) => Map(source, destination, CreateContext());
+    public global::Benchmark.Models.Organisation.AddressDto Map(global::Benchmark.Models.Organisation.Address source) => Map(source, SharedContext);
+    public global::Benchmark.Models.Organisation.AddressDto Map(global::Benchmark.Models.Organisation.Address source, global::Benchmark.Models.Organisation.AddressDto destination) => Map(source, destination, SharedContext);
     public global::Benchmark.Models.Organisation.AddressDto Map(global::Benchmark.Models.Organisation.Address source, global::MapperR.Core.Abstractions.MappingContext context)
     {
         global::System.ArgumentNullException.ThrowIfNull(source);

@@ -15,14 +15,22 @@ public sealed class MappingContext
     public const int MaxDepth = 256;
 
     private readonly IMapperResolver _resolver;
+    private readonly bool _shared;
     private Dictionary<(object Source, Type Destination), object> _visited;
     private int _depth;
 
     internal MappingContext(IMapperResolver resolver) => _resolver = resolver;
 
+    /// <summary>
+    /// A context shared by every call of a resolver, for pairs that cannot reach a cycle: it counts no depth and
+    /// remembers no objects, so it holds no state and is safe to use from any thread.
+    /// </summary>
+    internal MappingContext(IMapperResolver resolver, bool shared) : this(resolver) => _shared = shared;
+
     public TDestination Map<TSource, TDestination>(TSource source)
     {
         if (source is null) return default;
+        if (_shared) return _resolver.Get<TSource, TDestination>().Map(source, this);
 
         Enter<TSource, TDestination>();
         try
@@ -43,6 +51,7 @@ public sealed class MappingContext
     {
         if (source is null) return default;
         if (destination is null) return Map<TSource, TDestination>(source);
+        if (_shared) return _resolver.Get<TSource, TDestination>().Map(source, destination, this);
 
         Enter<TSource, TDestination>();
         try

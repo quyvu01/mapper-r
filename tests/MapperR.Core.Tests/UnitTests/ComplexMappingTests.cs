@@ -1,6 +1,9 @@
 using System.Globalization;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using MapperR.Core.Abstractions;
 using MapperR.Core.Extensions;
+using MapperR.Core.Implementations;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using Xunit;
@@ -502,5 +505,42 @@ public class ComplexMappingTests
         Should.Throw<InvalidOperationException>(() =>
                 mapper.Map<Employee, EmployeeDto>(Chain(MappingContext.MaxDepth + 10)))
             .Message.ShouldContain("maximum nesting depth");
+    }
+
+    // The flags enum is internal, so the theory passes its numeric value.
+    public static TheoryData<int> AllOptimizationCombinations() =>
+        [.. Enumerable.Range(0, (int)MapperOptimizations.All + 1)];
+
+    [Theory]
+    [MemberData(nameof(AllOptimizationCombinations))]
+    public void Every_combination_of_runtime_optimizations_produces_the_same_graph(int flags)
+    {
+        var optimizations = (MapperOptimizations)flags;
+        var services = new ServiceCollection();
+        services.AddSingleton<IProfile>(new OrganisationProfile());
+        var registry = new RegistryProvider(services.BuildServiceProvider()).ProfileRegistry;
+        var json = new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.Preserve };
+
+        var baseline = new RegistryMapperResolver(registry, MapperOptimizations.None).Get<Company, CompanyDto>();
+        var candidate = new RegistryMapperResolver(registry, optimizations).Get<Company, CompanyDto>();
+
+        JsonSerializer.Serialize(candidate.Map(CreateAcme()), json)
+            .ShouldBe(JsonSerializer.Serialize(baseline.Map(CreateAcme()), json));
+        JsonSerializer.Serialize(candidate.Map(new Company()), json)
+            .ShouldBe(JsonSerializer.Serialize(baseline.Map(new Company()), json));
+
+        static CompanyDto Existing() => new()
+        {
+            Name = "old", Headquarters = new AddressDto { Street = "old", Country = new CountryDto { Code = "old" } },
+            Ceo = new EmployeeDto { FullName = "old", Password = "kept-hash" },
+            Departments = [new DepartmentDto { Name = "old" }]
+        };
+
+        var updatedCandidate = Existing();
+        var updatedBaseline = Existing();
+        candidate.Map(CreateAcme(), updatedCandidate);
+        baseline.Map(CreateAcme(), updatedBaseline);
+        JsonSerializer.Serialize(updatedCandidate, json).ShouldBe(JsonSerializer.Serialize(updatedBaseline, json));
+        updatedCandidate.Ceo.Password.ShouldBe("kept-hash");
     }
 }

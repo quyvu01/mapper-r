@@ -12,6 +12,7 @@ internal sealed class WireProfileRegistry
 {
     private readonly Dictionary<(Type, Type), IWireProfile> _profilesByTypePair;
     private readonly Lazy<HashSet<IWireProfile>> _cyclicProfiles;
+    private readonly Lazy<HashSet<IWireProfile>> _reachesCycle;
 
     public WireProfileRegistry(IEnumerable<IWireProfile> wireProfiles)
     {
@@ -20,6 +21,7 @@ internal sealed class WireProfileRegistry
             .ToDictionary(kv => (kv.Key.SourceType, kv.Key.DestinationType),
                 kv => kv.Last());
         _cyclicProfiles = new Lazy<HashSet<IWireProfile>>(FindCyclicProfiles);
+        _reachesCycle = new Lazy<HashSet<IWireProfile>>(FindProfilesReachingCycles);
     }
 
     public IReadOnlyCollection<IWireProfile> Profiles => _profilesByTypePair.Values;
@@ -41,6 +43,15 @@ internal sealed class WireProfileRegistry
         !profile.SourceType.IsValueType && !profile.DestinationType.IsValueType &&
         _cyclicProfiles.Value.Contains(profile);
 
+    /// <summary>Whether the pair is part of a type-level cycle (value types included).</summary>
+    public bool IsCyclic(IWireProfile profile) => _cyclicProfiles.Value.Contains(profile);
+
+    /// <summary>
+    /// Whether mapping this pair can reach a pair that is part of a cycle (or is one). A pair that cannot needs
+    /// neither reference tracking nor a depth guard anywhere below it.
+    /// </summary>
+    public bool ReachesCycle(IWireProfile profile) => _reachesCycle.Value.Contains(profile);
+
     private IWireProfile[] ComputeDependenciesOf(IWireProfile profile) =>
     [
         .. profile.MemberProfiles
@@ -51,19 +62,21 @@ internal sealed class WireProfileRegistry
     ];
 
     /// <summary>
-    /// Profiles that can reach themselves. Edges use the same classification the expression builder uses to emit
-    /// nested calls (a nested object, or a collection whose elements are a nested pair).
+    /// Edges of the dependency graph, using the same classification the expression builder uses to emit nested
+    /// calls (a nested object, or a collection whose elements are a nested pair).
     /// </summary>
+    private Dictionary<IWireProfile, IWireProfile[]> BuildEdges() => _profilesByTypePair.Values
+        .ToDictionary(profile => profile, profile => profile.MemberProfiles
+            .Select(member => MemberClassifier
+                .Classify(member.SourceMemberType, member.DestinationMemberType, Find).NestedProfile)
+            .Where(nested => nested is not null)
+            .Distinct()
+            .ToArray());
+
+    /// <summary>Profiles that can reach themselves.</summary>
     private HashSet<IWireProfile> FindCyclicProfiles()
     {
-        var edges = _profilesByTypePair.Values
-            .ToDictionary(profile => profile, profile => profile.MemberProfiles
-                .Select(member => MemberClassifier
-                    .Classify(member.SourceMemberType, member.DestinationMemberType, Find).NestedProfile)
-                .Where(nested => nested is not null)
-                .Distinct()
-                .ToArray());
-
+        var edges = BuildEdges();
         var cyclic = new HashSet<IWireProfile>();
         foreach (var start in edges.Keys)
         {
@@ -83,5 +96,32 @@ internal sealed class WireProfileRegistry
         }
 
         return cyclic;
+    }
+
+    /// <summary>Profiles from which a cyclic profile (or the profile itself, if cyclic) can be reached.</summary>
+    private HashSet<IWireProfile> FindProfilesReachingCycles()
+    {
+        var cyclic = _cyclicProfiles.Value;
+        var edges = BuildEdges();
+        var reaching = new HashSet<IWireProfile>();
+        foreach (var start in edges.Keys)
+        {
+            var seen = new HashSet<IWireProfile> { start };
+            var pending = new Stack<IWireProfile>([start]);
+            while (pending.TryPop(out var current))
+            {
+                if (cyclic.Contains(current))
+                {
+                    reaching.Add(start);
+                    break;
+                }
+
+                foreach (var next in edges[current])
+                    if (seen.Add(next))
+                        pending.Push(next);
+            }
+        }
+
+        return reaching;
     }
 }

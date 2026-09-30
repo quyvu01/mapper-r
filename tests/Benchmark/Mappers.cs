@@ -3,6 +3,7 @@ using Benchmark.Models;
 using MapperR.Core.Abstractions;
 using MapperR.Core.Extensions;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using IMapperRMapper = MapperR.Core.Abstractions.IMapper;
 
 namespace Benchmark;
@@ -69,6 +70,14 @@ public static class MapperFactory
     public static ServiceProvider CreateMapperRRuntime() =>
         new ServiceCollection()
             .AddMapR(cfg => cfg.AddProfilesFromAssembly(typeof(MapperRBenchmarkProfile).Assembly))
+            .BuildServiceProvider();
+
+    /// <summary>A runtime-only provider with a chosen set of optimization steps (for the ladder benchmark).</summary>
+    internal static ServiceProvider CreateMapperRRuntime(MapperR.Core.Implementations.MapperOptimizations optimizations) =>
+        new ServiceCollection()
+            .AddMapR(cfg => cfg.AddProfilesFromAssembly(typeof(MapperRBenchmarkProfile).Assembly))
+            .Replace(ServiceDescriptor.Singleton(typeof(MapperR.Core.Implementations.MapperOptimizations),
+                _ => (object)optimizations))
             .BuildServiceProvider();
 
     public static ServiceProvider CreateMapperRGenerated() =>

@@ -50,7 +50,7 @@ internal static class MapperCodeGenerator
                 new CSharpExpressionPrinter(targetAssembly).PrintUpdateBody(update);
 
                 plans.Add(new MapperPlan(profile, UniqueClassName(profile, usedClassNames), map, update,
-                    registry.TracksReferences(profile)));
+                    registry.TracksReferences(profile), registry.ReachesCycle(profile)));
             }
             catch (UnsupportedExpressionException exception)
             {
@@ -77,7 +77,8 @@ internal static class MapperCodeGenerator
         string ClassName,
         LambdaExpression Map,
         LambdaExpression Update,
-        bool TracksReferences);
+        bool TracksReferences,
+        bool ReachesCycle);
 
     private static (string ClassName, string SourceType, string DestinationType, string Code) PrintMapper(
         MapperPlan plan, Assembly targetAssembly,
@@ -96,12 +97,15 @@ internal static class MapperCodeGenerator
             updatePrinter.GetParameterName(plan.Update.Parameters[1]),
             updatePrinter.GetParameterName(plan.Update.Parameters[2]));
 
-        // Same rule as the runtime InternalMapper: a pair without nested members never allocates a context.
-        var needsContext = plan.TracksReferences ||
-                           ParameterUsageVisitor.Uses(plan.Map, plan.Map.Parameters[1]) ||
-                           ParameterUsageVisitor.Uses(plan.Update, plan.Update.Parameters[2]);
+        // Same rule as the runtime InternalMapper: a pair without nested members never needs a context, and a pair
+        // that cannot reach a cycle needs no depth guard or tracking, so it uses the shared stateless context.
+        var usesContext = ParameterUsageVisitor.Uses(plan.Map, plan.Map.Parameters[1]) ||
+                          ParameterUsageVisitor.Uses(plan.Update, plan.Update.Parameters[2]);
+        var contextExpression = plan.TracksReferences || (usesContext && plan.ReachesCycle) ? "CreateContext()"
+            : usesContext ? "SharedContext"
+            : $"({ContextType})null"; // typed: a bare null is ambiguous between Map(source, destination) and Map(source, context)
 
-        var code = MapperClass(plan, sourceType, destinationType, map, update, needsContext);
+        var code = MapperClass(plan, sourceType, destinationType, map, update, contextExpression);
         return (plan.ClassName, sourceType, destinationType, code);
     }
 
@@ -157,10 +161,8 @@ internal static class MapperCodeGenerator
     /// before mapping its members (<c>MapCore</c> then uses the update form).
     /// </summary>
     private static string MapperClass(MapperPlan plan, string sourceType, string destinationType,
-        PrintedLambda map, PrintedLambda update, bool needsContext)
+        PrintedLambda map, PrintedLambda update, string newContext)
     {
-        // Typed null: a bare null would be ambiguous between Map(source, destination) and Map(source, context).
-        var newContext = needsContext ? "CreateContext()" : $"({ContextType})null";
         var sourceCanBeNull = CanBeNull(plan.Profile.SourceType);
         var destinationCanBeNull = CanBeNull(plan.Profile.DestinationType);
         var nullSourceGuard = sourceCanBeNull ? $"source == null ? default({destinationType}) : " : "";

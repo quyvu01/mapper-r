@@ -25,6 +25,12 @@ public abstract class AbstractInternalMapper<TDestination>
     /// <summary>A fresh context for one top-level map call.</summary>
     protected MappingContext CreateContext() => new(_resolver);
 
+    /// <summary>
+    /// The stateless context for pairs that cannot reach a cycle: nothing is tracked and no depth is counted, so
+    /// no allocation is needed per call.
+    /// </summary>
+    protected MappingContext SharedContext => _resolver.SharedContext;
+
     public abstract TDestination MapInternal(object source);
     public abstract TDestination MapInternal(object source, TDestination destination);
 }

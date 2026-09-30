@@ -10,6 +10,9 @@ namespace MapperR.Core.Implementations;
 internal interface IMapperResolver
 {
     IInternalMapper<TSource, TDestination> Get<TSource, TDestination>();
+
+    /// <summary>The stateless context used by pairs that cannot reach a cycle.</summary>
+    MappingContext SharedContext { get; }
 }
 
 /// <summary>
@@ -19,6 +22,8 @@ internal interface IMapperResolver
 /// </summary>
 internal sealed class MapperResolver(IServiceProvider services) : IMapperResolver
 {
+    public MappingContext SharedContext => field ??= new MappingContext(this, shared: true);
+
     public IInternalMapper<TSource, TDestination> Get<TSource, TDestination>()
     {
         var entry = Slot<TSource, TDestination>.Entry;
@@ -44,8 +49,12 @@ internal sealed class MapperResolver(IServiceProvider services) : IMapperResolve
 }
 
 /// <summary>Builds runtime mappers straight from a registry, without DI (tests and tooling).</summary>
-internal sealed class RegistryMapperResolver(WireProfileRegistry registry) : IMapperResolver
+internal sealed class RegistryMapperResolver(
+    WireProfileRegistry registry,
+    MapperOptimizations optimizations = MapperOptimizations.Default) : IMapperResolver
 {
+    public MappingContext SharedContext => field ??= new MappingContext(this, shared: true);
+
     private readonly ConcurrentDictionary<(Type Source, Type Destination), object> _mappers = new();
 
     public IInternalMapper<TSource, TDestination> Get<TSource, TDestination>() =>
@@ -53,5 +62,5 @@ internal sealed class RegistryMapperResolver(WireProfileRegistry registry) : IMa
             key => Activator.CreateInstance(
                 typeof(InternalMapper<,>).MakeGenericType(key.Source, key.Destination),
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-                binder: null, args: [registry, this], culture: null)!);
+                binder: null, args: [registry, this, optimizations], culture: null)!);
 }

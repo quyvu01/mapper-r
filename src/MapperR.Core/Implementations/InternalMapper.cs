@@ -7,37 +7,65 @@ internal class InternalMapper<TSource, TDestination> : AbstractInternalMapper<TD
     IInternalMapper<TSource, TDestination>
     where TDestination : new()
 {
+    private enum ContextKind
+    {
+        /// <summary>The trees never touch the context.</summary>
+        None,
+
+        /// <summary>Nested members only: nothing below can reach a cycle, so one stateless context serves every call.</summary>
+        Shared,
+
+        /// <summary>Depth guard and reference tracking: one context per top-level call.</summary>
+        PerCall
+    }
+
     private readonly Lazy<Func<TSource, MappingContext, TDestination>> _compiledMap;
     private readonly Lazy<Func<TSource, TDestination, MappingContext, TDestination>> _mapUpdate;
     private readonly bool _tracksReferences;
-    private readonly bool _needsContext;
+    private readonly ContextKind _contextKind;
 
     // Used by DI (open generic registration).
-    public InternalMapper(RegistryProvider registryProvider, MapperResolver resolver)
-        : this(registryProvider.ProfileRegistry, resolver)
+    public InternalMapper(RegistryProvider registryProvider, MapperResolver resolver,
+        MapperOptimizations optimizations) : this(registryProvider.ProfileRegistry, resolver, optimizations)
     {
     }
 
-    internal InternalMapper(WireProfileRegistry registry, IMapperResolver resolver) : base(resolver)
+    internal InternalMapper(WireProfileRegistry registry, IMapperResolver resolver,
+        MapperOptimizations optimizations = MapperOptimizations.Default) : base(resolver)
     {
         // Both trees are built eagerly so configuration errors surface when the mapper is resolved; compiling
         // stays lazy.
-        var map = TypeMapExpressionBuilder<TSource, TDestination>.Build(registry);
-        var update = TypeMapExpressionBuilder<TSource, TDestination>.BuildUpdate(registry);
+        var profile = registry.Find(typeof(TSource), typeof(TDestination));
+        var map = RuntimeExpressionOptimizer.Inline(
+            TypeMapExpressionBuilder<TSource, TDestination>.Build(registry), optimizations, registry);
+        var update = RuntimeExpressionOptimizer.Inline(
+            TypeMapExpressionBuilder<TSource, TDestination>.BuildUpdate(registry), optimizations, registry);
 
-        _tracksReferences = registry.TracksReferences(registry.Find(typeof(TSource), typeof(TDestination)));
-        // A pair without nested members never touches the context: top-level calls skip allocating one.
-        _needsContext = _tracksReferences || ParameterUsageVisitor.Uses(map, map.Parameters[1]) ||
-                        ParameterUsageVisitor.Uses(update, update.Parameters[2]);
+        _tracksReferences = registry.TracksReferences(profile);
+        var usesContext = ParameterUsageVisitor.Uses(map, map.Parameters[1]) ||
+                          ParameterUsageVisitor.Uses(update, update.Parameters[2]);
+        _contextKind = _tracksReferences || (usesContext && registry.ReachesCycle(profile)) ? ContextKind.PerCall
+            : !usesContext ? ContextKind.None
+            : optimizations.HasFlag(MapperOptimizations.SharedContextWhenAcyclic) ? ContextKind.Shared
+            : ContextKind.PerCall;
 
-        _compiledMap = new Lazy<Func<TSource, MappingContext, TDestination>>(map.Compile);
-        _mapUpdate = new Lazy<Func<TSource, TDestination, MappingContext, TDestination>>(update.Compile);
+        _compiledMap =
+            new Lazy<Func<TSource, MappingContext, TDestination>>(() =>
+                RuntimeExpressionOptimizer.Hoist(map, optimizations).Compile());
+        _mapUpdate = new Lazy<Func<TSource, TDestination, MappingContext, TDestination>>(() =>
+            RuntimeExpressionOptimizer.Hoist(update, optimizations).Compile());
     }
 
-    public TDestination Map(TSource source) => Map(source, _needsContext ? CreateContext() : null);
+    private MappingContext NewContext() => _contextKind switch
+    {
+        ContextKind.None => null,
+        ContextKind.Shared => SharedContext,
+        _ => CreateContext()
+    };
 
-    public TDestination Map(TSource source, TDestination destination) =>
-        Map(source, destination, _needsContext ? CreateContext() : null);
+    public TDestination Map(TSource source) => Map(source, NewContext());
+
+    public TDestination Map(TSource source, TDestination destination) => Map(source, destination, NewContext());
 
     public TDestination Map(TSource source, MappingContext context)
     {
@@ -54,7 +82,7 @@ internal class InternalMapper<TSource, TDestination> : AbstractInternalMapper<TD
     {
         ArgumentNullException.ThrowIfNull(source);
         if (destination is null) return Map(source, context);
-        
+
         if (!_tracksReferences) return _mapUpdate.Value(source, destination, context);
 
         if (context.TryGetVisited(source, out TDestination existing)) return existing;
