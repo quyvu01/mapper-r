@@ -40,10 +40,10 @@ internal sealed class MapperResolver(IServiceProvider services) : IMapperResolve
     }
 
     private sealed class SlotEntry<TSource, TDestination>(
-        MapperResolver owner,
+        IMapperResolver owner,
         IInternalMapper<TSource, TDestination> mapper)
     {
-        public MapperResolver Owner { get; } = owner;
+        public IMapperResolver Owner { get; } = owner;
         public IInternalMapper<TSource, TDestination> Mapper { get; } = mapper;
     }
 }

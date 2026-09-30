@@ -25,7 +25,7 @@ internal class InternalMapper<TSource, TDestination> : AbstractInternalMapper<TD
     private readonly ContextKind _contextKind;
 
     // Used by DI (open generic registration).
-    public InternalMapper(RegistryProvider registryProvider, MapperResolver resolver,
+    public InternalMapper(RegistryProvider registryProvider, IMapperResolver resolver,
         MapperOptimizations optimizations) : this(registryProvider.ProfileRegistry, resolver, optimizations)
     {
     }
@@ -49,9 +49,8 @@ internal class InternalMapper<TSource, TDestination> : AbstractInternalMapper<TD
             : optimizations.HasFlag(MapperOptimizations.SharedContextWhenAcyclic) ? ContextKind.Shared
             : ContextKind.PerCall;
 
-        _compiledMap =
-            new Lazy<Func<TSource, MappingContext, TDestination>>(() =>
-                RuntimeExpressionOptimizer.Hoist(map, optimizations).Compile());
+        _compiledMap = new Lazy<Func<TSource, MappingContext, TDestination>>(() =>
+            RuntimeExpressionOptimizer.Hoist(map, optimizations).Compile());
         _mapUpdate = new Lazy<Func<TSource, TDestination, MappingContext, TDestination>>(() =>
             RuntimeExpressionOptimizer.Hoist(update, optimizations).Compile());
     }

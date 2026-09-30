@@ -43,6 +43,15 @@ internal static class MapperCodeGenerator
                 var update = InvokeBuilder(profile, registry,
                     nameof(TypeMapExpressionBuilder<object, object>.BuildUpdate));
 
+                // Whether the pair touches its context is decided on the builder's trees: the hoisted form below
+                // always passes the context on to the collection helper, even when no element uses it.
+                var usesContext = ParameterUsageVisitor.Uses(map, map.Parameters[1]) ||
+                                  ParameterUsageVisitor.Uses(update, update.Parameters[2]);
+
+                // The same collection rewrite the runtime engine applies: no LINQ iterator or closure per call.
+                map = RuntimeExpressionOptimizer.HoistForPrinting(map);
+                update = RuntimeExpressionOptimizer.HoistForPrinting(update);
+
                 var probe = new CSharpExpressionPrinter(targetAssembly);
                 probe.PrintType(profile.SourceType);
                 probe.PrintType(profile.DestinationType);
@@ -50,7 +59,7 @@ internal static class MapperCodeGenerator
                 new CSharpExpressionPrinter(targetAssembly).PrintUpdateBody(update);
 
                 plans.Add(new MapperPlan(profile, UniqueClassName(profile, usedClassNames), map, update,
-                    registry.TracksReferences(profile), registry.ReachesCycle(profile)));
+                    registry.TracksReferences(profile), registry.ReachesCycle(profile), usesContext));
             }
             catch (UnsupportedExpressionException exception)
             {
@@ -78,7 +87,8 @@ internal static class MapperCodeGenerator
         LambdaExpression Map,
         LambdaExpression Update,
         bool TracksReferences,
-        bool ReachesCycle);
+        bool ReachesCycle,
+        bool UsesContext);
 
     private static (string ClassName, string SourceType, string DestinationType, string Code) PrintMapper(
         MapperPlan plan, Assembly targetAssembly,
@@ -99,10 +109,8 @@ internal static class MapperCodeGenerator
 
         // Same rule as the runtime InternalMapper: a pair without nested members never needs a context, and a pair
         // that cannot reach a cycle needs no depth guard or tracking, so it uses the shared stateless context.
-        var usesContext = ParameterUsageVisitor.Uses(plan.Map, plan.Map.Parameters[1]) ||
-                          ParameterUsageVisitor.Uses(plan.Update, plan.Update.Parameters[2]);
-        var contextExpression = plan.TracksReferences || (usesContext && plan.ReachesCycle) ? "CreateContext()"
-            : usesContext ? "SharedContext"
+        var contextExpression = plan.TracksReferences || (plan.UsesContext && plan.ReachesCycle) ? "CreateContext()"
+            : plan.UsesContext ? "SharedContext"
             : $"({ContextType})null"; // typed: a bare null is ambiguous between Map(source, destination) and Map(source, context)
 
         var code = MapperClass(plan, sourceType, destinationType, map, update, contextExpression);

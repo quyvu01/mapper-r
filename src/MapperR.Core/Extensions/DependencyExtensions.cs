@@ -16,10 +16,10 @@ public static class DependencyExtensions
         ArgumentNullException.ThrowIfNull(options);
         var configuration = new MapperConfiguration(services);
         options.Invoke(configuration);
-        services.AddTransient<IMapper, Mapper>();
+        services.AddSingleton<IMapper, Mapper>();
         services.AddSingleton(typeof(IInternalMapper<,>), typeof(InternalMapper<,>));
         services.AddSingleton<RegistryProvider>();
-        services.AddSingleton<MapperResolver>();
+        services.AddSingleton<IMapperResolver, MapperResolver>();
         // A factory, not an instance: TryAddSingleton(instance) only accepts reference types.
         services.TryAdd(ServiceDescriptor.Singleton(typeof(MapperOptimizations),
             _ => (object)MapperOptimizations.Default));

@@ -17,7 +17,7 @@ public abstract class AbstractInternalMapper<TDestination>
     protected AbstractInternalMapper(IServiceProvider services)
     {
         ArgumentNullException.ThrowIfNull(services);
-        _resolver = services.GetRequiredService<MapperResolver>();
+        _resolver = services.GetRequiredService<IMapperResolver>();
     }
 
     private protected AbstractInternalMapper(IMapperResolver resolver) => _resolver = resolver;

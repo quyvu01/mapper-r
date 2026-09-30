@@ -131,10 +131,24 @@ public class ComplexGeneratedMappingTests
     {
         var code = Generated.Value.Result.Code;
 
-        code.ShouldNotContain("MapperRuntime.");
+        code.ShouldNotContain("MapperRuntime.MapNested");
         code.ShouldContain("Company_To_CompanyDto_Mapper.MapNested");      // Department.Company back reference
         code.ShouldContain("Employee_To_EmployeeDto_Mapper.MapNested");    // Employee.Manager self reference
         code.ShouldContain("Coordinates_To_CoordinatesDto_Mapper.MapNested");
+    }
+
+    [Fact]
+    public void Collections_are_mapped_by_loop_helpers_with_a_non_capturing_element_mapper()
+    {
+        var code = Generated.Value.Result.Code;
+
+        code.ShouldNotContain("Enumerable.Select");
+        code.ShouldNotContain("Enumerable.ToList");
+        code.ShouldContain("MapperRuntime.MapToList");     // Skills, Reports, Departments, Tags
+        code.ShouldContain("MapperRuntime.MapToArray");    // DepartmentDto.Employees
+        // The element mapper takes the context as a parameter of its own (a second, distinct name), so it does
+        // not capture the method's context and the C# compiler caches the delegate.
+        code.ShouldContain("MappingContext context1) =>");
     }
 
     [Fact]

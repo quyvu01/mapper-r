@@ -19,12 +19,18 @@ public class EquivalenceTests
     {
         var expression = TypeMapExpressionBuilder<TSource, TDestination>.Build(registry);
         var runtime = expression.Compile();
-        var generated = InMemoryCompiler.Compile(expression);
+        // What the generator prints is the hoisted form (collections through MapperRuntime helpers); the plain
+        // tree is printed too, so both shapes stay correct.
+        var generatedPlain = InMemoryCompiler.Compile(expression);
+        var generatedHoisted = InMemoryCompiler.Compile(RuntimeExpressionOptimizer.HoistForPrinting(expression));
         MappingContext NewContext() => new(new RegistryMapperResolver(registry));
 
         foreach (var input in inputs)
-            JsonSerializer.Serialize(generated(input, NewContext()))
-                .ShouldBe(JsonSerializer.Serialize(runtime(input, NewContext())));
+        {
+            var expected = JsonSerializer.Serialize(runtime(input, NewContext()));
+            JsonSerializer.Serialize(generatedPlain(input, NewContext())).ShouldBe(expected);
+            JsonSerializer.Serialize(generatedHoisted(input, NewContext())).ShouldBe(expected);
+        }
     }
 
     [Fact]

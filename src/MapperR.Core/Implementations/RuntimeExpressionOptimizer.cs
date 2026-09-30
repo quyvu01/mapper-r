@@ -31,8 +31,22 @@ internal static class RuntimeExpressionOptimizer
         if (!options.HasFlag(MapperOptimizations.HoistCollectionLambdas)) return lambda;
 
         var context = lambda.Parameters[^1];
-        var body = new HoistVisitor(context).Visit(lambda.Body);
+        var body = new HoistVisitor(context, compile: true).Visit(lambda.Body);
         return Expression.Lambda<TDelegate>(body, lambda.Parameters);
+    }
+
+    /// <summary>
+    /// The same rewrite for <c>maprgen</c>: the element mapper stays a lambda (printed as a C# lambda that takes the
+    /// context as a parameter, so it captures nothing) instead of being compiled into a constant delegate.
+    /// </summary>
+    public static Expression<TDelegate> HoistForPrinting<TDelegate>(Expression<TDelegate> lambda) =>
+        (Expression<TDelegate>)HoistForPrinting((LambdaExpression)lambda);
+
+    public static LambdaExpression HoistForPrinting(LambdaExpression lambda)
+    {
+        var context = lambda.Parameters[^1];
+        var body = new HoistVisitor(context, compile: false).Visit(lambda.Body);
+        return Expression.Lambda(lambda.Type, body, lambda.Parameters);
     }
 
     private static bool CanBeNull(Type type) => !type.IsValueType || Nullable.GetUnderlyingType(type) is not null;
@@ -58,7 +72,7 @@ internal static class RuntimeExpressionOptimizer
             return base.VisitMethodCall(node);
         }
 
-        private Expression InlineMap(Type sourceType, Type destinationType, Expression value)
+        private BlockExpression InlineMap(Type sourceType, Type destinationType, Expression value)
         {
             if (Build(sourceType, destinationType, "Build") is not { } build) return null;
 
@@ -72,7 +86,7 @@ internal static class RuntimeExpressionOptimizer
                     : body);
         }
 
-        private Expression InlineUpdate(Type sourceType, Type destinationType, Expression value, Expression target)
+        private BlockExpression InlineUpdate(Type sourceType, Type destinationType, Expression value, Expression target)
         {
             if (Build(sourceType, destinationType, "Build") is not { } build ||
                 Build(sourceType, destinationType, "BuildUpdate") is not { } update) return null;
@@ -123,28 +137,37 @@ internal static class RuntimeExpressionOptimizer
 
     /// <summary>
     /// <c>Select(value, item =&gt; element).ToList()/ToArray()/ToHashSet()</c> becomes a call to
-    /// <see cref="RuntimeCollections"/> with the element compiled once, as a constant delegate.
+    /// <see cref="MapperRuntime.MapToList{TSource,TDestination}"/> (or the array/set form). The runtime compiles the
+    /// element once, as a constant delegate (<paramref name="compile"/>); <c>maprgen</c> keeps it as a lambda.
     /// </summary>
-    private sealed class HoistVisitor(ParameterExpression context) : ExpressionVisitor
+    private sealed class HoistVisitor(ParameterExpression context, bool compile) : ExpressionVisitor
     {
         protected override Expression VisitMethodCall(MethodCallExpression node)
         {
             if (node.Method.DeclaringType == typeof(Enumerable) &&
                 node.Method.Name is nameof(Enumerable.ToList) or nameof(Enumerable.ToArray)
                     or nameof(Enumerable.ToHashSet) &&
-                node.Arguments is [MethodCallExpression { Method.Name: nameof(Enumerable.Select) } select] &&
-                select.Arguments is [var collection, LambdaExpression { Parameters.Count: 1 } element] &&
+                node.Arguments is
+                [
+                    MethodCallExpression
+                    {
+                        Method.Name: nameof(Enumerable.Select),
+                        Arguments: [var collection, LambdaExpression { Parameters.Count: 1 } element]
+                    } select
+                ] &&
                 UsesOnly(element, element.Parameters[0], context))
             {
                 var elementContext = Expression.Parameter(typeof(MappingContext), "context");
                 var elementBody = new ReplaceParameterVisitor(context, elementContext).Visit(element.Body);
                 var types = select.Method.GetGenericArguments();
-                var compiled = Expression.Lambda(
+                var elementLambda = Expression.Lambda(
                     typeof(Func<,,>).MakeGenericType(types[0], typeof(MappingContext), types[1]),
-                    elementBody, element.Parameters[0], elementContext).Compile();
+                    elementBody, element.Parameters[0], elementContext);
 
-                var helper = typeof(RuntimeCollections).GetMethod(node.Method.Name)!.MakeGenericMethod(types);
-                return Expression.Call(helper, Visit(collection), Expression.Constant(compiled), context);
+                var helper = typeof(MapperRuntime).GetMethod("Map" + node.Method.Name)!.MakeGenericMethod(types);
+                return Expression.Call(helper, Visit(collection),
+                    compile ? Expression.Constant(elementLambda.Compile(), elementLambda.Type) : elementLambda,
+                    context);
             }
 
             return base.VisitMethodCall(node);

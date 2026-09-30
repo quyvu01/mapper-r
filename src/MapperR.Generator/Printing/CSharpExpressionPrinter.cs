@@ -335,6 +335,7 @@ internal sealed class CSharpExpressionPrinter(
         var arguments = string.Join(", ", call.Arguments.Select(Print));
 
         if (method.DeclaringType == typeof(MapperRuntime) && method.IsGenericMethod && generatedMappers is not null
+            && method.Name is nameof(MapperRuntime.MapNested) or nameof(MapperRuntime.MapNestedInto)
             && generatedMappers.TryGetValue(
                 (method.GetGenericArguments()[0], method.GetGenericArguments()[1]), out var generatedMapper))
             return $"{generatedMapper}.{method.Name}({arguments})";
