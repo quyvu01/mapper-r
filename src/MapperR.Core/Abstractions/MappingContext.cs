@@ -19,7 +19,14 @@ public sealed class MappingContext
     private Dictionary<(object Source, Type Destination), object> _visited;
     private int _depth;
 
-    internal MappingContext(IMapperResolver resolver) => _resolver = resolver;
+    internal MappingContext(IMapperResolver resolver)
+    {
+        _resolver = resolver;
+        AllowNullCollections = resolver.AllowNullCollections;
+    }
+
+    /// <summary>Whether a <c>null</c> source collection maps to <c>null</c> instead of an empty collection.</summary>
+    internal bool AllowNullCollections { get; }
 
     /// <summary>
     /// A context shared by every call of a resolver, for pairs that cannot reach a cycle: it counts no depth and

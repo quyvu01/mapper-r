@@ -198,10 +198,10 @@ public class ComplexMappingTests
 
     private static readonly Guid AcmeId = Guid.Parse("7f1c2b8e-3d4a-4e5f-9a6b-1c2d3e4f5a6b");
 
-    private static (ServiceProvider Provider, IMapper Mapper) BuildMapper()
+    private static (ServiceProvider Provider, IMapper Mapper) BuildMapper(bool allowNullCollections = false)
     {
         var services = new ServiceCollection();
-        services.AddMapR(_ => { });
+        services.AddMapR(cfg => cfg.AllowNullCollections = allowNullCollections);
         services.AddSingleton<IProfile>(new OrganisationProfile());
         var provider = services.BuildServiceProvider();
         return (provider, provider.GetRequiredService<IMapper>());
@@ -347,7 +347,7 @@ public class ComplexMappingTests
     }
 
     [Fact]
-    public void Nulls_inside_the_graph_stay_null()
+    public void Null_objects_stay_null_and_null_collections_become_empty()
     {
         var (provider, mapper) = BuildMapper();
         using var _ = provider;
@@ -360,8 +360,8 @@ public class ComplexMappingTests
         engineering.Employees[3].ShouldBeNull();
         engineering.Manager.Salary.ShouldBeNull();
         developer.Address.ShouldBeNull();
-        developer.Skills.ShouldBeNull();
-        developer.Reports.ShouldBeNull();
+        developer.Skills.ShouldNotBeNull().ShouldBeEmpty();     // IEnumerable<SkillDto>, built as an empty List
+        developer.Reports.ShouldNotBeNull().ShouldBeEmpty();
         developer.Email.ShouldBeNull();
         engineering.Manager.Address.Street.ShouldBeNull();
         engineering.Manager.Address.Location.ShouldBe(default(CoordinatesDto));
@@ -378,11 +378,30 @@ public class ComplexMappingTests
 
         dto.Name.ShouldBeNull();
         dto.Founded.ShouldBe("01/01/0001 00:00:00");
-        dto.Tags.ShouldBeNull();
+        dto.Tags.ShouldBeEmpty();
         dto.Headquarters.ShouldBeNull();
         dto.Ceo.ShouldBeNull();
-        dto.Departments.ShouldBeNull();
+        dto.Departments.ShouldBeEmpty();
         dto.DepartmentCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public void With_null_collections_allowed_null_collections_stay_null_and_objects_are_unaffected()
+    {
+        var (provider, mapper) = BuildMapper(allowNullCollections: true);
+        using var _ = provider;
+
+        var empty = mapper.Map<Company, CompanyDto>(new Company());
+        empty.Tags.ShouldBeNull();
+        empty.Departments.ShouldBeNull();
+        empty.Headquarters.ShouldBeNull();
+
+        var dto = mapper.Map<Company, CompanyDto>(CreateAcme());
+        var developer = dto.Departments[1].Employees[1];
+        developer.Skills.ShouldBeNull();
+        developer.Reports.ShouldBeNull();
+        dto.Tags.ShouldBe(["b2b", "saas"]);                       // a collection that has items is still mapped
+        dto.Departments[1].Employees[3].ShouldBeNull();           // null elements are still null elements
     }
 
     [Fact]
@@ -508,12 +527,19 @@ public class ComplexMappingTests
     }
 
     // The flags enum is internal, so the theory passes its numeric value.
-    public static TheoryData<int> AllOptimizationCombinations() =>
-        [.. Enumerable.Range(0, (int)MapperOptimizations.All + 1)];
+    public static TheoryData<int, bool> AllOptimizationCombinations()
+    {
+        var data = new TheoryData<int, bool>();
+        foreach (var flags in Enumerable.Range(0, (int)MapperOptimizations.All + 1))
+        foreach (var allowNull in new[] { false, true })
+            data.Add(flags, allowNull);
+
+        return data;
+    }
 
     [Theory]
     [MemberData(nameof(AllOptimizationCombinations))]
-    public void Every_combination_of_runtime_optimizations_produces_the_same_graph(int flags)
+    public void Every_combination_of_runtime_optimizations_produces_the_same_graph(int flags, bool allowNull)
     {
         var optimizations = (MapperOptimizations)flags;
         var services = new ServiceCollection();
@@ -521,8 +547,9 @@ public class ComplexMappingTests
         var registry = new RegistryProvider(services.BuildServiceProvider()).ProfileRegistry;
         var json = new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.Preserve };
 
-        var baseline = new RegistryMapperResolver(registry, MapperOptimizations.None).Get<Company, CompanyDto>();
-        var candidate = new RegistryMapperResolver(registry, optimizations).Get<Company, CompanyDto>();
+        var baseline = new RegistryMapperResolver(registry, MapperOptimizations.None, allowNull)
+            .Get<Company, CompanyDto>();
+        var candidate = new RegistryMapperResolver(registry, optimizations, allowNull).Get<Company, CompanyDto>();
 
         JsonSerializer.Serialize(candidate.Map(CreateAcme()), json)
             .ShouldBe(JsonSerializer.Serialize(baseline.Map(CreateAcme()), json));

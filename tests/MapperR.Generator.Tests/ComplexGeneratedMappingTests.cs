@@ -47,18 +47,20 @@ public class ComplexGeneratedMappingTests
         return (result, assembly);
     });
 
-    private static ServiceProvider BuildGeneratedProvider()
+    private static ServiceProvider BuildGeneratedProvider(bool allowNullCollections = false)
     {
         var services = new ServiceCollection();
-        services.AddMapR(_ => { });
+        services.AddMapR(cfg => cfg.AllowNullCollections = allowNullCollections);
         services.AddSingleton<IProfile>(new DelegateProfile(Organisation));
         Generated.Value.Assembly.GetType("Test.Generated.Organisation.MapperRGeneratedExtensions")!
             .GetMethod("AddGeneratedMappers")!.Invoke(null, [services]);
         return services.BuildServiceProvider();
     }
 
-    private static IInternalMapper<TSource, TDestination> Runtime<TSource, TDestination>() =>
-        new RegistryMapperResolver(DelegateProfile.BuildRegistry(Organisation)).Get<TSource, TDestination>();
+    private static IInternalMapper<TSource, TDestination> Runtime<TSource, TDestination>(
+        bool allowNullCollections = false) =>
+        new RegistryMapperResolver(DelegateProfile.BuildRegistry(Organisation), allowNullCollections: allowNullCollections)
+            .Get<TSource, TDestination>();
 
     private static string Graph<T>(T value) => JsonSerializer.Serialize(value, GraphJson);
 
@@ -174,6 +176,38 @@ public class ComplexGeneratedMappingTests
 
         Graph(generated).ShouldBe(Graph(runtime));
         Graph(mapper.Map<CompanyDto>((object)CreateAcme())).ShouldBe(Graph(runtime));
+    }
+
+    [Fact]
+    public void Null_collections_are_handled_by_a_helper_so_one_generated_file_serves_both_settings()
+    {
+        Generated.Value.Result.Code.ShouldContain("MapperRuntime.NullCollection<");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Generated_and_runtime_agree_on_null_collections_for_either_setting(bool allowNull)
+    {
+        using var provider = BuildGeneratedProvider(allowNull);
+        var mapper = provider.GetRequiredService<IMapper>();
+        var runtime = Runtime<Company, CompanyDto>(allowNull);
+
+        var generated = mapper.Map<Company, CompanyDto>(CreateAcme());     // developers have null Skills / Reports
+        var empty = mapper.Map<Company, CompanyDto>(new Company());        // null Tags / Departments
+
+        Graph(generated).ShouldBe(Graph(runtime.Map(CreateAcme())));
+        Graph(empty).ShouldBe(Graph(runtime.Map(new Company())));
+        (empty.Tags is null).ShouldBe(allowNull);
+        (empty.Departments is null).ShouldBe(allowNull);
+        (generated.Departments[1].Employees[1].Skills is null).ShouldBe(allowNull);
+
+        var updated = ExistingDestination();
+        var updatedByRuntime = ExistingDestination();
+        mapper.Map(new Company(), updated);
+        runtime.Map(new Company(), updatedByRuntime);
+        Graph(updated).ShouldBe(Graph(updatedByRuntime));
+        (updated.Departments is null).ShouldBe(allowNull);
     }
 
     [Fact]

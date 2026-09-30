@@ -16,6 +16,7 @@ public static class DependencyExtensions
         ArgumentNullException.ThrowIfNull(options);
         var configuration = new MapperConfiguration(services);
         options.Invoke(configuration);
+        services.AddSingleton(new MapperSettings(configuration.AllowNullCollections));
         services.AddSingleton<IMapper, Mapper>();
         services.AddSingleton(typeof(IInternalMapper<,>), typeof(InternalMapper<,>));
         services.AddSingleton<RegistryProvider>();

@@ -15,7 +15,10 @@ namespace MapperR.Generator.Tests;
 public class EquivalenceTests
 {
     private static void AssertEquivalent<TSource, TDestination>(WireProfileRegistry registry, params TSource[] inputs)
-        where TDestination : new()
+        where TDestination : new() => AssertEquivalent<TSource, TDestination>(registry, false, inputs);
+
+    private static void AssertEquivalent<TSource, TDestination>(WireProfileRegistry registry,
+        bool allowNullCollections, params TSource[] inputs) where TDestination : new()
     {
         var expression = TypeMapExpressionBuilder<TSource, TDestination>.Build(registry);
         var runtime = expression.Compile();
@@ -23,7 +26,7 @@ public class EquivalenceTests
         // tree is printed too, so both shapes stay correct.
         var generatedPlain = InMemoryCompiler.Compile(expression);
         var generatedHoisted = InMemoryCompiler.Compile(RuntimeExpressionOptimizer.HoistForPrinting(expression));
-        MappingContext NewContext() => new(new RegistryMapperResolver(registry));
+        MappingContext NewContext() => new(new RegistryMapperResolver(registry, allowNullCollections: allowNullCollections));
 
         foreach (var input in inputs)
         {
@@ -110,5 +113,23 @@ public class EquivalenceTests
         AssertEquivalent<Person, PersonDto>(registry,
             new Person { Name = "Alice", Age = 30, Address = new Address { City = "Hanoi" } },
             new Person());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Null_collections_map_to_empty_or_null_depending_on_the_setting(bool allowNull)
+    {
+        var registry = DelegateProfile.BuildRegistry(
+            p => p.Map<Address, AddressDto>(),
+            p => p.Map<Person, PersonDto>()
+                .ForMember(d => d.Addresses, s => s.Addresses)
+                .ForMember(d => d.AddressArray, s => s.AddressArray)
+                .ForMember(d => d.AddressSequence, s => s.AddressSequence)
+                .ForMember(d => d.Scores, s => s.Scores));
+
+        AssertEquivalent<Person, PersonDto>(registry, allowNull,
+            new Person(),
+            new Person { Addresses = [], Scores = [1, 2] });
     }
 }

@@ -23,6 +23,9 @@ internal static class TypeMapExpressionBuilder<TSource, TDestination>
     private static readonly MethodInfo MapNestedIntoMethod =
         typeof(MapperRuntime).GetMethod(nameof(MapperRuntime.MapNestedInto))!;
 
+    private static readonly MethodInfo NullCollectionMethod =
+        typeof(MapperRuntime).GetMethod(nameof(MapperRuntime.NullCollection))!;
+
     public static Expression<Func<TSource, MappingContext, TDestination>> Build(WireProfileRegistry registry)
     {
         var profile = FindProfile(registry);
@@ -149,7 +152,7 @@ internal static class TypeMapExpressionBuilder<TSource, TDestination>
     };
 
     /// <summary>
-    /// Builds <c>value == null ? null : value.Select(item => &lt;element&gt;).ToList()/.ToArray()/...</c>. Nested
+    /// Builds <c>value == null ? &lt;empty or null&gt; : value.Select(item => &lt;element&gt;).ToList()/.ToArray()/...</c>. Nested
     /// elements are mapped through <see cref="MapperRuntime.MapNested{TSource,TDestination}"/>, which maps a null
     /// element to null.
     /// </summary>
@@ -167,9 +170,11 @@ internal static class TypeMapExpressionBuilder<TSource, TDestination>
         var selectCall = Expression.Call(typeof(Enumerable), nameof(Enumerable.Select),
             [sourceElementType, destinationElementType], value, elementLambda);
 
+        // A null source collection becomes an empty destination collection, or null when AllowNullCollections is
+        // on; the context carries that setting, so the same tree serves both and generated code needs no flag.
         return Expression.Condition(
             Expression.Equal(value, Expression.Constant(null, value.Type)),
-            Expression.Default(destinationType),
+            Expression.Call(NullCollectionMethod.MakeGenericMethod(destinationType), context),
             MaterializeCollection(selectCall, destinationType, destinationElementType));
     }
 

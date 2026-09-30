@@ -34,13 +34,12 @@ public static class OrganisationSetup
 {
     /// <summary>
     /// Configured to do the same work as MapperR: invariant-culture text (AutoMapper's default is the current
-    /// culture), null collections stay null (AutoMapper's default maps them to empty collections), same computed
-    /// and ignored members. Circular maps: AutoMapper turns on reference preservation by itself.
+    /// culture), same computed and ignored members. Null collections need no setting: both default to mapping a
+    /// null collection to an empty one. Circular maps: AutoMapper turns on reference preservation by itself.
     /// </summary>
     public static AutoMapper.IMapper CreateAutoMapper() =>
         new AutoMapper.MapperConfiguration(cfg =>
         {
-            cfg.AllowNullCollections = true;
             cfg.CreateMap<Company, CompanyDto>()
                 .ForMember(d => d.Founded, o => o.MapFrom(s => s.Founded.ToString(null, CultureInfo.InvariantCulture)))
                 .ForMember(d => d.DepartmentCount, o => o.MapFrom(s => s.Departments == null ? 0 : s.Departments.Count));

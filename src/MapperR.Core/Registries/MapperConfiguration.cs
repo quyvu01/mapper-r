@@ -7,6 +7,8 @@ namespace MapperR.Core.Registries;
 
 internal sealed class MapperConfiguration(IServiceCollection services) : IMapperConfiguration
 {
+    public bool AllowNullCollections { get; set; }
+
     public IMapperConfiguration AddProfilesFromAssembly(Assembly assembly)
     {
         var profileTypes = assembly.DefinedTypes

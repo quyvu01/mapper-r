@@ -166,19 +166,20 @@ public class TypeMapExpressionBuilderTests
     }
 
     /// <summary>Compiles the map tree; nested pairs resolve through the registry, without DI.</summary>
-    private static Func<TSource, TDestination> CompileMap<TSource, TDestination>(WireProfileRegistry registry)
-        where TDestination : new()
+    private static Func<TSource, TDestination> CompileMap<TSource, TDestination>(WireProfileRegistry registry,
+        bool allowNullCollections = false) where TDestination : new()
     {
         var map = TypeMapExpressionBuilder<TSource, TDestination>.Build(registry).Compile();
-        return source => map(source, new MappingContext(new RegistryMapperResolver(registry)));
+        return source => map(source, new MappingContext(
+            new RegistryMapperResolver(registry, allowNullCollections: allowNullCollections)));
     }
 
     private static Func<TSource, TDestination, TDestination> CompileUpdate<TSource, TDestination>(
-        WireProfileRegistry registry) where TDestination : new()
+        WireProfileRegistry registry, bool allowNullCollections = false) where TDestination : new()
     {
         var update = TypeMapExpressionBuilder<TSource, TDestination>.BuildUpdate(registry).Compile();
-        return (source, destination) =>
-            update(source, destination, new MappingContext(new RegistryMapperResolver(registry)));
+        return (source, destination) => update(source, destination, new MappingContext(
+            new RegistryMapperResolver(registry, allowNullCollections: allowNullCollections)));
     }
 
     [Fact]
@@ -243,7 +244,7 @@ public class TypeMapExpressionBuilderTests
         result.Child.Child.ShouldNotBeNull();
         result.Child.Child.Child.ShouldBeNull();
         result.Children.Count.ShouldBe(1);
-        result.Children[0].Children.ShouldBeNull();
+        result.Children[0].Children.ShouldBeEmpty();   // a null source collection maps to an empty one by default
     }
 
     [Fact]
@@ -409,7 +410,7 @@ public class TypeMapExpressionBuilderTests
     }
 
     [Fact]
-    public void Build_returns_null_for_a_null_collection_instead_of_throwing()
+    public void Build_maps_a_null_collection_to_an_empty_one_instead_of_throwing()
     {
         var registry = BuildRegistry(
             p => p.Map<Address, AddressDto>(),
@@ -419,7 +420,20 @@ public class TypeMapExpressionBuilderTests
 
         var result = map(new PersonWithAddresses { Addresses = null });
 
-        result.Addresses.ShouldBeNull();
+        result.Addresses.ShouldNotBeNull();
+        result.Addresses.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Build_keeps_a_null_collection_null_when_null_collections_are_allowed()
+    {
+        var registry = BuildRegistry(
+            p => p.Map<Address, AddressDto>(),
+            p => p.Map<PersonWithAddresses, PersonWithAddressesDto>()
+                .ForMember(d => d.Addresses, s => s.Addresses));
+        var map = CompileMap<PersonWithAddresses, PersonWithAddressesDto>(registry, allowNullCollections: true);
+
+        map(new PersonWithAddresses { Addresses = null }).Addresses.ShouldBeNull();
     }
 
     [Fact]

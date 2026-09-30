@@ -1,3 +1,5 @@
+using MapperR.Core.Implementations;
+
 namespace MapperR.Core.Abstractions;
 
 /// <summary>
@@ -13,6 +15,14 @@ public static class MapperRuntime
     public static TDestination MapNestedInto<TSource, TDestination>(TSource source, TDestination destination,
         MappingContext context) =>
         context.MapInto(source, destination);
+
+    /// <summary>
+    /// What a <c>null</c> source collection maps to: an empty collection of <typeparamref name="TDestination"/>
+    /// (an array, <c>List&lt;T&gt;</c>, <c>HashSet&lt;T&gt;</c>, or a <c>List&lt;T&gt;</c> for an interface type), or
+    /// <c>null</c> when <c>AllowNullCollections</c> is on.
+    /// </summary>
+    public static TDestination NullCollection<TDestination>(MappingContext context) =>
+        context.AllowNullCollections ? default : EmptyCollection<TDestination>.Create();
 
     // Collection helpers: the runtime engine and generated code map a collection through one of these instead of
     // Select(...).ToList() with a lambda, which would allocate an iterator and a closure on every call. They give

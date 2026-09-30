@@ -13,6 +13,9 @@ internal interface IMapperResolver
 
     /// <summary>The stateless context used by pairs that cannot reach a cycle.</summary>
     MappingContext SharedContext { get; }
+
+    /// <summary>Whether a <c>null</c> source collection stays <c>null</c> instead of becoming an empty one.</summary>
+    bool AllowNullCollections { get; }
 }
 
 /// <summary>
@@ -20,8 +23,10 @@ internal interface IMapperResolver
 /// filled it, so the lookup is a field read, and several service providers in one process never share mappers
 /// (a slot owned by another resolver is simply re-resolved). Safe to cache: internal mappers are singletons.
 /// </summary>
-internal sealed class MapperResolver(IServiceProvider services) : IMapperResolver
+internal sealed class MapperResolver(IServiceProvider services, MapperSettings settings) : IMapperResolver
 {
+    public bool AllowNullCollections { get; } = settings.AllowNullCollections;
+
     public MappingContext SharedContext => field ??= new MappingContext(this, shared: true);
 
     public IInternalMapper<TSource, TDestination> Get<TSource, TDestination>()
@@ -51,8 +56,11 @@ internal sealed class MapperResolver(IServiceProvider services) : IMapperResolve
 /// <summary>Builds runtime mappers straight from a registry, without DI (tests and tooling).</summary>
 internal sealed class RegistryMapperResolver(
     WireProfileRegistry registry,
-    MapperOptimizations optimizations = MapperOptimizations.Default) : IMapperResolver
+    MapperOptimizations optimizations = MapperOptimizations.Default,
+    bool allowNullCollections = false) : IMapperResolver
 {
+    public bool AllowNullCollections { get; } = allowNullCollections;
+
     public MappingContext SharedContext => field ??= new MappingContext(this, shared: true);
 
     private readonly ConcurrentDictionary<(Type Source, Type Destination), object> _mappers = new();

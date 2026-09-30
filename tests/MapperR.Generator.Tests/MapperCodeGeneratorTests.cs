@@ -47,7 +47,8 @@ public class MapperCodeGeneratorTests
         JsonSerializer.Serialize(mapper.Map<PersonDto>(person)).ShouldBe(JsonSerializer.Serialize(Runtime(person)));
 
         // Update form, generated vs runtime: the existing nested Address must be updated in place rather than
-        // replaced. (Scores, List<int> → HashSet<long>, is mapped by convention, so it follows the source.)
+        // replaced. (Scores, List<int> → HashSet<long>, is mapped by convention, so it follows the source: a null source list
+        // becomes an empty set.)
         PersonDto RuntimeUpdate(Person source, PersonDto destination) => runtimeMap.Map(source, destination);
         PersonDto Target() => new() { Age = 99, Scores = [7], Address = new AddressDto { City = "old" } };
         var expected = JsonSerializer.Serialize(RuntimeUpdate(person, Target()));
@@ -60,7 +61,7 @@ public class MapperCodeGeneratorTests
         mapper.Map<PersonDto>((object)person, untypedTarget).ShouldBeSameAs(untypedTarget);
         JsonSerializer.Serialize(typedTarget).ShouldBe(expected);
         JsonSerializer.Serialize(untypedTarget).ShouldBe(expected);
-        typedTarget.Scores.ShouldBeNull();
+        typedTarget.Scores.ShouldBeEmpty();   // the source has no scores: a null collection maps to an empty one
         typedTarget.Address.ShouldBeSameAs(typedAddress);
         untypedTarget.Address.ShouldBeSameAs(untypedAddress);
         typedAddress.City.ShouldBe("Hanoi");
