@@ -1,4 +1,5 @@
 using MapperR.Core.Abstractions;
+using MapperR.Core.Helpers;
 
 namespace MapperR.Core.Registries;
 
@@ -9,16 +10,16 @@ namespace MapperR.Core.Registries;
 /// </summary>
 internal sealed class WireProfileRegistry
 {
-    private readonly Dictionary<(Type Source, Type Destination), IWireProfile> _profilesByTypePair;
-    private readonly Dictionary<IWireProfile, IWireProfile[]> _dependenciesByProfile;
+    private readonly Dictionary<(Type, Type), IWireProfile> _profilesByTypePair;
+    private readonly Lazy<HashSet<IWireProfile>> _cyclicProfiles;
 
     public WireProfileRegistry(IEnumerable<IWireProfile> wireProfiles)
     {
         var profiles = wireProfiles as IWireProfile[] ?? [.. wireProfiles];
-        _profilesByTypePair = profiles.ToDictionary(profile => (profile.SourceType, profile.DestinationType));
-        _dependenciesByProfile = profiles.ToDictionary(profile => profile, ComputeDependenciesOf);
-
-        EnsureNoCycles();
+        _profilesByTypePair = profiles.GroupBy(p => (p.SourceType, p.DestinationType))
+            .ToDictionary(kv => (kv.Key.SourceType, kv.Key.DestinationType),
+                kv => kv.Last());
+        _cyclicProfiles = new Lazy<HashSet<IWireProfile>>(FindCyclicProfiles);
     }
 
     public IReadOnlyCollection<IWireProfile> Profiles => _profilesByTypePair.Values;
@@ -27,7 +28,18 @@ internal sealed class WireProfileRegistry
         _profilesByTypePair.GetValueOrDefault((source, destination));
 
     public IReadOnlyCollection<IWireProfile> GetDependenciesOf(IWireProfile profile) =>
-        _dependenciesByProfile.TryGetValue(profile, out var dependencies) ? dependencies : [];
+        [.. ComputeDependenciesOf(profile)];
+
+    /// <summary>
+    /// Whether mapping this pair must remember already-mapped objects: only when an object of the pair can reach
+    /// another object of the same pair through nested members (a cycle between types, including a self
+    /// reference). Cycles between types are fine — nested members are resolved at runtime — but a cycle in the
+    /// data (<c>a.Child.Child == a</c>) would recurse forever without tracking. Value types cannot form such
+    /// cycles and are never tracked. A missed cycle is still safe: <see cref="MappingContext.MaxDepth"/> stops it.
+    /// </summary>
+    public bool TracksReferences(IWireProfile profile) =>
+        !profile.SourceType.IsValueType && !profile.DestinationType.IsValueType &&
+        _cyclicProfiles.Value.Contains(profile);
 
     private IWireProfile[] ComputeDependenciesOf(IWireProfile profile) =>
     [
@@ -38,32 +50,38 @@ internal sealed class WireProfileRegistry
             .Distinct()
     ];
 
-    private void EnsureNoCycles()
+    /// <summary>
+    /// Profiles that can reach themselves. Edges use the same classification the expression builder uses to emit
+    /// nested calls (a nested object, or a collection whose elements are a nested pair).
+    /// </summary>
+    private HashSet<IWireProfile> FindCyclicProfiles()
     {
-        var visited = new HashSet<IWireProfile>();
-        var path = new List<IWireProfile>();
+        var edges = _profilesByTypePair.Values
+            .ToDictionary(profile => profile, profile => profile.MemberProfiles
+                .Select(member => MemberClassifier
+                    .Classify(member.SourceMemberType, member.DestinationMemberType, Find).NestedProfile)
+                .Where(nested => nested is not null)
+                .Distinct()
+                .ToArray());
 
-        foreach (var profile in _dependenciesByProfile.Keys) Visit(profile, visited, path);
-    }
-
-    private void Visit(IWireProfile profile, HashSet<IWireProfile> visited, List<IWireProfile> path)
-    {
-        if (visited.Contains(profile)) return;
-
-        var cycleStart = path.IndexOf(profile);
-        if (cycleStart >= 0)
+        var cyclic = new HashSet<IWireProfile>();
+        foreach (var start in edges.Keys)
         {
-            var cycle = path.Skip(cycleStart).Append(profile).Select(Describe);
-            throw new InvalidOperationException(
-                $"Circular mapping dependency detected: {string.Join(" -> ", cycle)}");
+            var seen = new HashSet<IWireProfile>();
+            var pending = new Stack<IWireProfile>(edges[start]);
+            while (pending.TryPop(out var current))
+            {
+                if (current == start)
+                {
+                    cyclic.Add(start);
+                    break;
+                }
+
+                if (!seen.Add(current)) continue;
+                foreach (var next in edges[current]) pending.Push(next);
+            }
         }
 
-        path.Add(profile);
-        foreach (var dependency in _dependenciesByProfile[profile]) Visit(dependency, visited, path);
-        path.RemoveAt(path.Count - 1);
-        visited.Add(profile);
+        return cyclic;
     }
-
-    private static string Describe(IWireProfile profile) =>
-        $"{profile.SourceType.Name}->{profile.DestinationType.Name}";
 }

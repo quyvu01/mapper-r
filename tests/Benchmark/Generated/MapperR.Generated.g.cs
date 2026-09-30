@@ -6,9 +6,30 @@
 namespace Benchmark;
 internal sealed class Address_To_AddressDto_Mapper : global::MapperR.Core.Abstractions.AbstractInternalMapper<global::Benchmark.Models.AddressDto>, global::MapperR.Core.Abstractions.IInternalMapper<global::Benchmark.Models.Address, global::Benchmark.Models.AddressDto>
 {
-    public global::Benchmark.Models.AddressDto Map(global::Benchmark.Models.Address source)
+    public Address_To_AddressDto_Mapper(global::System.IServiceProvider services) : base(services)
+    {
+    }
+
+    public global::Benchmark.Models.AddressDto Map(global::Benchmark.Models.Address source) => Map(source, (global::MapperR.Core.Abstractions.MappingContext)null);
+    public global::Benchmark.Models.AddressDto Map(global::Benchmark.Models.Address source, global::Benchmark.Models.AddressDto destination) => Map(source, destination, (global::MapperR.Core.Abstractions.MappingContext)null);
+    public global::Benchmark.Models.AddressDto Map(global::Benchmark.Models.Address source, global::MapperR.Core.Abstractions.MappingContext context)
     {
         global::System.ArgumentNullException.ThrowIfNull(source);
+        return MapCore(source, context);
+    }
+
+    public global::Benchmark.Models.AddressDto Map(global::Benchmark.Models.Address source, global::Benchmark.Models.AddressDto destination, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        global::System.ArgumentNullException.ThrowIfNull(source);
+        return destination == null ? MapCore(source, context) : MapIntoCore(source, destination, context);
+    }
+
+    public override global::Benchmark.Models.AddressDto MapInternal(object source) => Map((global::Benchmark.Models.Address)source);
+    public override global::Benchmark.Models.AddressDto MapInternal(object source, global::Benchmark.Models.AddressDto destination) => Map((global::Benchmark.Models.Address)source, destination);
+    internal static global::Benchmark.Models.AddressDto MapNested(global::Benchmark.Models.Address source, global::MapperR.Core.Abstractions.MappingContext context) => source == null ? default(global::Benchmark.Models.AddressDto) : MapCore(source, context);
+    internal static global::Benchmark.Models.AddressDto MapNestedInto(global::Benchmark.Models.Address source, global::Benchmark.Models.AddressDto destination, global::MapperR.Core.Abstractions.MappingContext context) => source == null ? default(global::Benchmark.Models.AddressDto) : destination == null ? MapCore(source, context) : MapIntoCore(source, destination, context);
+    private static global::Benchmark.Models.AddressDto MapCore(global::Benchmark.Models.Address source, global::MapperR.Core.Abstractions.MappingContext context)
+    {
         return new global::Benchmark.Models.AddressDto
         {
             Street = source.Street,
@@ -17,25 +38,46 @@ internal sealed class Address_To_AddressDto_Mapper : global::MapperR.Core.Abstra
         };
     }
 
-    public global::Benchmark.Models.AddressDto Map(global::Benchmark.Models.Address source, global::Benchmark.Models.AddressDto destination)
+    private static global::Benchmark.Models.AddressDto MapIntoCore(global::Benchmark.Models.Address source, global::Benchmark.Models.AddressDto destination, global::MapperR.Core.Abstractions.MappingContext context)
     {
-        global::System.ArgumentNullException.ThrowIfNull(source);
-        global::System.ArgumentNullException.ThrowIfNull(destination);
+        return MapMembers(source, destination, context);
+    }
+
+    private static global::Benchmark.Models.AddressDto MapMembers(global::Benchmark.Models.Address source, global::Benchmark.Models.AddressDto destination, global::MapperR.Core.Abstractions.MappingContext context)
+    {
         destination.Street = source.Street;
         destination.City = source.City;
         destination.Country = source.Country;
         return destination;
     }
-
-    public override global::Benchmark.Models.AddressDto MapInternal(object source) => Map((global::Benchmark.Models.Address)source);
-    public override global::Benchmark.Models.AddressDto MapInternal(object source, global::Benchmark.Models.AddressDto destination) => Map((global::Benchmark.Models.Address)source, destination);
 }
 
 internal sealed class Customer_To_CustomerDto_Mapper : global::MapperR.Core.Abstractions.AbstractInternalMapper<global::Benchmark.Models.CustomerDto>, global::MapperR.Core.Abstractions.IInternalMapper<global::Benchmark.Models.Customer, global::Benchmark.Models.CustomerDto>
 {
-    public global::Benchmark.Models.CustomerDto Map(global::Benchmark.Models.Customer source)
+    public Customer_To_CustomerDto_Mapper(global::System.IServiceProvider services) : base(services)
+    {
+    }
+
+    public global::Benchmark.Models.CustomerDto Map(global::Benchmark.Models.Customer source) => Map(source, (global::MapperR.Core.Abstractions.MappingContext)null);
+    public global::Benchmark.Models.CustomerDto Map(global::Benchmark.Models.Customer source, global::Benchmark.Models.CustomerDto destination) => Map(source, destination, (global::MapperR.Core.Abstractions.MappingContext)null);
+    public global::Benchmark.Models.CustomerDto Map(global::Benchmark.Models.Customer source, global::MapperR.Core.Abstractions.MappingContext context)
     {
         global::System.ArgumentNullException.ThrowIfNull(source);
+        return MapCore(source, context);
+    }
+
+    public global::Benchmark.Models.CustomerDto Map(global::Benchmark.Models.Customer source, global::Benchmark.Models.CustomerDto destination, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        global::System.ArgumentNullException.ThrowIfNull(source);
+        return destination == null ? MapCore(source, context) : MapIntoCore(source, destination, context);
+    }
+
+    public override global::Benchmark.Models.CustomerDto MapInternal(object source) => Map((global::Benchmark.Models.Customer)source);
+    public override global::Benchmark.Models.CustomerDto MapInternal(object source, global::Benchmark.Models.CustomerDto destination) => Map((global::Benchmark.Models.Customer)source, destination);
+    internal static global::Benchmark.Models.CustomerDto MapNested(global::Benchmark.Models.Customer source, global::MapperR.Core.Abstractions.MappingContext context) => source == null ? default(global::Benchmark.Models.CustomerDto) : MapCore(source, context);
+    internal static global::Benchmark.Models.CustomerDto MapNestedInto(global::Benchmark.Models.Customer source, global::Benchmark.Models.CustomerDto destination, global::MapperR.Core.Abstractions.MappingContext context) => source == null ? default(global::Benchmark.Models.CustomerDto) : destination == null ? MapCore(source, context) : MapIntoCore(source, destination, context);
+    private static global::Benchmark.Models.CustomerDto MapCore(global::Benchmark.Models.Customer source, global::MapperR.Core.Abstractions.MappingContext context)
+    {
         return new global::Benchmark.Models.CustomerDto
         {
             Id = source.Id,
@@ -48,10 +90,13 @@ internal sealed class Customer_To_CustomerDto_Mapper : global::MapperR.Core.Abst
         };
     }
 
-    public global::Benchmark.Models.CustomerDto Map(global::Benchmark.Models.Customer source, global::Benchmark.Models.CustomerDto destination)
+    private static global::Benchmark.Models.CustomerDto MapIntoCore(global::Benchmark.Models.Customer source, global::Benchmark.Models.CustomerDto destination, global::MapperR.Core.Abstractions.MappingContext context)
     {
-        global::System.ArgumentNullException.ThrowIfNull(source);
-        global::System.ArgumentNullException.ThrowIfNull(destination);
+        return MapMembers(source, destination, context);
+    }
+
+    private static global::Benchmark.Models.CustomerDto MapMembers(global::Benchmark.Models.Customer source, global::Benchmark.Models.CustomerDto destination, global::MapperR.Core.Abstractions.MappingContext context)
+    {
         destination.Id = source.Id;
         destination.Name = source.Name;
         destination.Email = source.Email;
@@ -61,109 +106,86 @@ internal sealed class Customer_To_CustomerDto_Mapper : global::MapperR.Core.Abst
         destination.CreatedAt = source.CreatedAt;
         return destination;
     }
-
-    public override global::Benchmark.Models.CustomerDto MapInternal(object source) => Map((global::Benchmark.Models.Customer)source);
-    public override global::Benchmark.Models.CustomerDto MapInternal(object source, global::Benchmark.Models.CustomerDto destination) => Map((global::Benchmark.Models.Customer)source, destination);
 }
 
 internal sealed class Order_To_OrderDto_Mapper : global::MapperR.Core.Abstractions.AbstractInternalMapper<global::Benchmark.Models.OrderDto>, global::MapperR.Core.Abstractions.IInternalMapper<global::Benchmark.Models.Order, global::Benchmark.Models.OrderDto>
 {
-    public global::Benchmark.Models.OrderDto Map(global::Benchmark.Models.Order source)
+    public Order_To_OrderDto_Mapper(global::System.IServiceProvider services) : base(services)
+    {
+    }
+
+    public global::Benchmark.Models.OrderDto Map(global::Benchmark.Models.Order source) => Map(source, CreateContext());
+    public global::Benchmark.Models.OrderDto Map(global::Benchmark.Models.Order source, global::Benchmark.Models.OrderDto destination) => Map(source, destination, CreateContext());
+    public global::Benchmark.Models.OrderDto Map(global::Benchmark.Models.Order source, global::MapperR.Core.Abstractions.MappingContext context)
     {
         global::System.ArgumentNullException.ThrowIfNull(source);
+        return MapCore(source, context);
+    }
+
+    public global::Benchmark.Models.OrderDto Map(global::Benchmark.Models.Order source, global::Benchmark.Models.OrderDto destination, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        global::System.ArgumentNullException.ThrowIfNull(source);
+        return destination == null ? MapCore(source, context) : MapIntoCore(source, destination, context);
+    }
+
+    public override global::Benchmark.Models.OrderDto MapInternal(object source) => Map((global::Benchmark.Models.Order)source);
+    public override global::Benchmark.Models.OrderDto MapInternal(object source, global::Benchmark.Models.OrderDto destination) => Map((global::Benchmark.Models.Order)source, destination);
+    internal static global::Benchmark.Models.OrderDto MapNested(global::Benchmark.Models.Order source, global::MapperR.Core.Abstractions.MappingContext context) => source == null ? default(global::Benchmark.Models.OrderDto) : MapCore(source, context);
+    internal static global::Benchmark.Models.OrderDto MapNestedInto(global::Benchmark.Models.Order source, global::Benchmark.Models.OrderDto destination, global::MapperR.Core.Abstractions.MappingContext context) => source == null ? default(global::Benchmark.Models.OrderDto) : destination == null ? MapCore(source, context) : MapIntoCore(source, destination, context);
+    private static global::Benchmark.Models.OrderDto MapCore(global::Benchmark.Models.Order source, global::MapperR.Core.Abstractions.MappingContext context)
+    {
         return new global::Benchmark.Models.OrderDto
         {
-            Customer = (source.Customer == null) ? default(global::Benchmark.Models.CustomerDto) : new global::Benchmark.Models.CustomerDto
-            {
-                Id = source.Customer.Id,
-                Name = source.Customer.Name,
-                Email = source.Customer.Email,
-                Age = source.Customer.Age,
-                IsActive = source.Customer.IsActive,
-                Balance = source.Customer.Balance,
-                CreatedAt = source.Customer.CreatedAt
-            },
-            ShippingAddress = (source.ShippingAddress == null) ? default(global::Benchmark.Models.AddressDto) : new global::Benchmark.Models.AddressDto
-            {
-                Street = source.ShippingAddress.Street,
-                City = source.ShippingAddress.City,
-                Country = source.ShippingAddress.Country
-            },
-            Lines = (source.Lines == null) ? default(global::System.Collections.Generic.List<global::Benchmark.Models.OrderLineDto>) : ((global::System.Collections.Generic.List<global::Benchmark.Models.OrderLineDto>)(global::System.Linq.Enumerable.ToList<global::Benchmark.Models.OrderLineDto>(global::System.Linq.Enumerable.Select<global::Benchmark.Models.OrderLine, global::Benchmark.Models.OrderLineDto>(source.Lines, (global::Benchmark.Models.OrderLine item) => new global::Benchmark.Models.OrderLineDto { ProductId = item.ProductId, ProductName = item.ProductName, Quantity = item.Quantity, UnitPrice = item.UnitPrice })))),
+            Customer = global::Benchmark.Customer_To_CustomerDto_Mapper.MapNested(source.Customer, context),
+            ShippingAddress = global::Benchmark.Address_To_AddressDto_Mapper.MapNested(source.ShippingAddress, context),
+            Lines = (source.Lines == null) ? default(global::System.Collections.Generic.List<global::Benchmark.Models.OrderLineDto>) : ((global::System.Collections.Generic.List<global::Benchmark.Models.OrderLineDto>)(global::System.Linq.Enumerable.ToList<global::Benchmark.Models.OrderLineDto>(global::System.Linq.Enumerable.Select<global::Benchmark.Models.OrderLine, global::Benchmark.Models.OrderLineDto>(source.Lines, (global::Benchmark.Models.OrderLine item) => global::Benchmark.OrderLine_To_OrderLineDto_Mapper.MapNested(item, context))))),
             Id = source.Id,
             PlacedAt = source.PlacedAt
         };
     }
 
-    public global::Benchmark.Models.OrderDto Map(global::Benchmark.Models.Order source, global::Benchmark.Models.OrderDto destination)
+    private static global::Benchmark.Models.OrderDto MapIntoCore(global::Benchmark.Models.Order source, global::Benchmark.Models.OrderDto destination, global::MapperR.Core.Abstractions.MappingContext context)
     {
-        global::System.ArgumentNullException.ThrowIfNull(source);
-        global::System.ArgumentNullException.ThrowIfNull(destination);
-        global::Benchmark.Models.Customer nested = source.Customer;
-        if (nested == null)
-        {
-            destination.Customer = default(global::Benchmark.Models.CustomerDto);
-        }
-        else if (destination.Customer == null)
-        {
-            destination.Customer = new global::Benchmark.Models.CustomerDto
-            {
-                Id = nested.Id,
-                Name = nested.Name,
-                Email = nested.Email,
-                Age = nested.Age,
-                IsActive = nested.IsActive,
-                Balance = nested.Balance,
-                CreatedAt = nested.CreatedAt
-            };
-        }
-        else
-        {
-            destination.Customer.Id = nested.Id;
-            destination.Customer.Name = nested.Name;
-            destination.Customer.Email = nested.Email;
-            destination.Customer.Age = nested.Age;
-            destination.Customer.IsActive = nested.IsActive;
-            destination.Customer.Balance = nested.Balance;
-            destination.Customer.CreatedAt = nested.CreatedAt;
-        }
+        return MapMembers(source, destination, context);
+    }
 
-        global::Benchmark.Models.Address nested1 = source.ShippingAddress;
-        if (nested1 == null)
-        {
-            destination.ShippingAddress = default(global::Benchmark.Models.AddressDto);
-        }
-        else if (destination.ShippingAddress == null)
-        {
-            destination.ShippingAddress = new global::Benchmark.Models.AddressDto
-            {
-                Street = nested1.Street,
-                City = nested1.City,
-                Country = nested1.Country
-            };
-        }
-        else
-        {
-            destination.ShippingAddress.Street = nested1.Street;
-            destination.ShippingAddress.City = nested1.City;
-            destination.ShippingAddress.Country = nested1.Country;
-        }
-
-        destination.Lines = (source.Lines == null) ? default(global::System.Collections.Generic.List<global::Benchmark.Models.OrderLineDto>) : ((global::System.Collections.Generic.List<global::Benchmark.Models.OrderLineDto>)(global::System.Linq.Enumerable.ToList<global::Benchmark.Models.OrderLineDto>(global::System.Linq.Enumerable.Select<global::Benchmark.Models.OrderLine, global::Benchmark.Models.OrderLineDto>(source.Lines, (global::Benchmark.Models.OrderLine item) => new global::Benchmark.Models.OrderLineDto { ProductId = item.ProductId, ProductName = item.ProductName, Quantity = item.Quantity, UnitPrice = item.UnitPrice }))));
+    private static global::Benchmark.Models.OrderDto MapMembers(global::Benchmark.Models.Order source, global::Benchmark.Models.OrderDto destination, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        destination.Customer = global::Benchmark.Customer_To_CustomerDto_Mapper.MapNestedInto(source.Customer, destination.Customer, context);
+        destination.ShippingAddress = global::Benchmark.Address_To_AddressDto_Mapper.MapNestedInto(source.ShippingAddress, destination.ShippingAddress, context);
+        destination.Lines = (source.Lines == null) ? default(global::System.Collections.Generic.List<global::Benchmark.Models.OrderLineDto>) : ((global::System.Collections.Generic.List<global::Benchmark.Models.OrderLineDto>)(global::System.Linq.Enumerable.ToList<global::Benchmark.Models.OrderLineDto>(global::System.Linq.Enumerable.Select<global::Benchmark.Models.OrderLine, global::Benchmark.Models.OrderLineDto>(source.Lines, (global::Benchmark.Models.OrderLine item) => global::Benchmark.OrderLine_To_OrderLineDto_Mapper.MapNested(item, context)))));
         destination.Id = source.Id;
         destination.PlacedAt = source.PlacedAt;
         return destination;
     }
-
-    public override global::Benchmark.Models.OrderDto MapInternal(object source) => Map((global::Benchmark.Models.Order)source);
-    public override global::Benchmark.Models.OrderDto MapInternal(object source, global::Benchmark.Models.OrderDto destination) => Map((global::Benchmark.Models.Order)source, destination);
 }
 
 internal sealed class OrderLine_To_OrderLineDto_Mapper : global::MapperR.Core.Abstractions.AbstractInternalMapper<global::Benchmark.Models.OrderLineDto>, global::MapperR.Core.Abstractions.IInternalMapper<global::Benchmark.Models.OrderLine, global::Benchmark.Models.OrderLineDto>
 {
-    public global::Benchmark.Models.OrderLineDto Map(global::Benchmark.Models.OrderLine source)
+    public OrderLine_To_OrderLineDto_Mapper(global::System.IServiceProvider services) : base(services)
+    {
+    }
+
+    public global::Benchmark.Models.OrderLineDto Map(global::Benchmark.Models.OrderLine source) => Map(source, (global::MapperR.Core.Abstractions.MappingContext)null);
+    public global::Benchmark.Models.OrderLineDto Map(global::Benchmark.Models.OrderLine source, global::Benchmark.Models.OrderLineDto destination) => Map(source, destination, (global::MapperR.Core.Abstractions.MappingContext)null);
+    public global::Benchmark.Models.OrderLineDto Map(global::Benchmark.Models.OrderLine source, global::MapperR.Core.Abstractions.MappingContext context)
     {
         global::System.ArgumentNullException.ThrowIfNull(source);
+        return MapCore(source, context);
+    }
+
+    public global::Benchmark.Models.OrderLineDto Map(global::Benchmark.Models.OrderLine source, global::Benchmark.Models.OrderLineDto destination, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        global::System.ArgumentNullException.ThrowIfNull(source);
+        return destination == null ? MapCore(source, context) : MapIntoCore(source, destination, context);
+    }
+
+    public override global::Benchmark.Models.OrderLineDto MapInternal(object source) => Map((global::Benchmark.Models.OrderLine)source);
+    public override global::Benchmark.Models.OrderLineDto MapInternal(object source, global::Benchmark.Models.OrderLineDto destination) => Map((global::Benchmark.Models.OrderLine)source, destination);
+    internal static global::Benchmark.Models.OrderLineDto MapNested(global::Benchmark.Models.OrderLine source, global::MapperR.Core.Abstractions.MappingContext context) => source == null ? default(global::Benchmark.Models.OrderLineDto) : MapCore(source, context);
+    internal static global::Benchmark.Models.OrderLineDto MapNestedInto(global::Benchmark.Models.OrderLine source, global::Benchmark.Models.OrderLineDto destination, global::MapperR.Core.Abstractions.MappingContext context) => source == null ? default(global::Benchmark.Models.OrderLineDto) : destination == null ? MapCore(source, context) : MapIntoCore(source, destination, context);
+    private static global::Benchmark.Models.OrderLineDto MapCore(global::Benchmark.Models.OrderLine source, global::MapperR.Core.Abstractions.MappingContext context)
+    {
         return new global::Benchmark.Models.OrderLineDto
         {
             ProductId = source.ProductId,
@@ -173,19 +195,370 @@ internal sealed class OrderLine_To_OrderLineDto_Mapper : global::MapperR.Core.Ab
         };
     }
 
-    public global::Benchmark.Models.OrderLineDto Map(global::Benchmark.Models.OrderLine source, global::Benchmark.Models.OrderLineDto destination)
+    private static global::Benchmark.Models.OrderLineDto MapIntoCore(global::Benchmark.Models.OrderLine source, global::Benchmark.Models.OrderLineDto destination, global::MapperR.Core.Abstractions.MappingContext context)
     {
-        global::System.ArgumentNullException.ThrowIfNull(source);
-        global::System.ArgumentNullException.ThrowIfNull(destination);
+        return MapMembers(source, destination, context);
+    }
+
+    private static global::Benchmark.Models.OrderLineDto MapMembers(global::Benchmark.Models.OrderLine source, global::Benchmark.Models.OrderLineDto destination, global::MapperR.Core.Abstractions.MappingContext context)
+    {
         destination.ProductId = source.ProductId;
         destination.ProductName = source.ProductName;
         destination.Quantity = source.Quantity;
         destination.UnitPrice = source.UnitPrice;
         return destination;
     }
+}
 
-    public override global::Benchmark.Models.OrderLineDto MapInternal(object source) => Map((global::Benchmark.Models.OrderLine)source);
-    public override global::Benchmark.Models.OrderLineDto MapInternal(object source, global::Benchmark.Models.OrderLineDto destination) => Map((global::Benchmark.Models.OrderLine)source, destination);
+internal sealed class Address_To_AddressDto_Mapper2 : global::MapperR.Core.Abstractions.AbstractInternalMapper<global::Benchmark.Models.Organisation.AddressDto>, global::MapperR.Core.Abstractions.IInternalMapper<global::Benchmark.Models.Organisation.Address, global::Benchmark.Models.Organisation.AddressDto>
+{
+    public Address_To_AddressDto_Mapper2(global::System.IServiceProvider services) : base(services)
+    {
+    }
+
+    public global::Benchmark.Models.Organisation.AddressDto Map(global::Benchmark.Models.Organisation.Address source) => Map(source, CreateContext());
+    public global::Benchmark.Models.Organisation.AddressDto Map(global::Benchmark.Models.Organisation.Address source, global::Benchmark.Models.Organisation.AddressDto destination) => Map(source, destination, CreateContext());
+    public global::Benchmark.Models.Organisation.AddressDto Map(global::Benchmark.Models.Organisation.Address source, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        global::System.ArgumentNullException.ThrowIfNull(source);
+        return MapCore(source, context);
+    }
+
+    public global::Benchmark.Models.Organisation.AddressDto Map(global::Benchmark.Models.Organisation.Address source, global::Benchmark.Models.Organisation.AddressDto destination, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        global::System.ArgumentNullException.ThrowIfNull(source);
+        return destination == null ? MapCore(source, context) : MapIntoCore(source, destination, context);
+    }
+
+    public override global::Benchmark.Models.Organisation.AddressDto MapInternal(object source) => Map((global::Benchmark.Models.Organisation.Address)source);
+    public override global::Benchmark.Models.Organisation.AddressDto MapInternal(object source, global::Benchmark.Models.Organisation.AddressDto destination) => Map((global::Benchmark.Models.Organisation.Address)source, destination);
+    internal static global::Benchmark.Models.Organisation.AddressDto MapNested(global::Benchmark.Models.Organisation.Address source, global::MapperR.Core.Abstractions.MappingContext context) => source == null ? default(global::Benchmark.Models.Organisation.AddressDto) : MapCore(source, context);
+    internal static global::Benchmark.Models.Organisation.AddressDto MapNestedInto(global::Benchmark.Models.Organisation.Address source, global::Benchmark.Models.Organisation.AddressDto destination, global::MapperR.Core.Abstractions.MappingContext context) => source == null ? default(global::Benchmark.Models.Organisation.AddressDto) : destination == null ? MapCore(source, context) : MapIntoCore(source, destination, context);
+    private static global::Benchmark.Models.Organisation.AddressDto MapCore(global::Benchmark.Models.Organisation.Address source, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        return new global::Benchmark.Models.Organisation.AddressDto
+        {
+            Street = source.Street,
+            City = source.City,
+            Country = global::Benchmark.Country_To_CountryDto_Mapper.MapNested(source.Country, context),
+            Location = global::Benchmark.Coordinates_To_CoordinatesDto_Mapper.MapNested(source.Location, context)
+        };
+    }
+
+    private static global::Benchmark.Models.Organisation.AddressDto MapIntoCore(global::Benchmark.Models.Organisation.Address source, global::Benchmark.Models.Organisation.AddressDto destination, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        return MapMembers(source, destination, context);
+    }
+
+    private static global::Benchmark.Models.Organisation.AddressDto MapMembers(global::Benchmark.Models.Organisation.Address source, global::Benchmark.Models.Organisation.AddressDto destination, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        destination.Street = source.Street;
+        destination.City = source.City;
+        destination.Country = global::Benchmark.Country_To_CountryDto_Mapper.MapNestedInto(source.Country, destination.Country, context);
+        destination.Location = global::Benchmark.Coordinates_To_CoordinatesDto_Mapper.MapNested(source.Location, context);
+        return destination;
+    }
+}
+
+internal sealed class Company_To_CompanyDto_Mapper : global::MapperR.Core.Abstractions.AbstractInternalMapper<global::Benchmark.Models.Organisation.CompanyDto>, global::MapperR.Core.Abstractions.IInternalMapper<global::Benchmark.Models.Organisation.Company, global::Benchmark.Models.Organisation.CompanyDto>
+{
+    public Company_To_CompanyDto_Mapper(global::System.IServiceProvider services) : base(services)
+    {
+    }
+
+    public global::Benchmark.Models.Organisation.CompanyDto Map(global::Benchmark.Models.Organisation.Company source) => Map(source, CreateContext());
+    public global::Benchmark.Models.Organisation.CompanyDto Map(global::Benchmark.Models.Organisation.Company source, global::Benchmark.Models.Organisation.CompanyDto destination) => Map(source, destination, CreateContext());
+    public global::Benchmark.Models.Organisation.CompanyDto Map(global::Benchmark.Models.Organisation.Company source, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        global::System.ArgumentNullException.ThrowIfNull(source);
+        return MapCore(source, context);
+    }
+
+    public global::Benchmark.Models.Organisation.CompanyDto Map(global::Benchmark.Models.Organisation.Company source, global::Benchmark.Models.Organisation.CompanyDto destination, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        global::System.ArgumentNullException.ThrowIfNull(source);
+        return destination == null ? MapCore(source, context) : MapIntoCore(source, destination, context);
+    }
+
+    public override global::Benchmark.Models.Organisation.CompanyDto MapInternal(object source) => Map((global::Benchmark.Models.Organisation.Company)source);
+    public override global::Benchmark.Models.Organisation.CompanyDto MapInternal(object source, global::Benchmark.Models.Organisation.CompanyDto destination) => Map((global::Benchmark.Models.Organisation.Company)source, destination);
+    internal static global::Benchmark.Models.Organisation.CompanyDto MapNested(global::Benchmark.Models.Organisation.Company source, global::MapperR.Core.Abstractions.MappingContext context) => source == null ? default(global::Benchmark.Models.Organisation.CompanyDto) : MapCore(source, context);
+    internal static global::Benchmark.Models.Organisation.CompanyDto MapNestedInto(global::Benchmark.Models.Organisation.Company source, global::Benchmark.Models.Organisation.CompanyDto destination, global::MapperR.Core.Abstractions.MappingContext context) => source == null ? default(global::Benchmark.Models.Organisation.CompanyDto) : destination == null ? MapCore(source, context) : MapIntoCore(source, destination, context);
+    private static global::Benchmark.Models.Organisation.CompanyDto MapCore(global::Benchmark.Models.Organisation.Company source, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        if (context.TryGetVisited(source, out global::Benchmark.Models.Organisation.CompanyDto existing))
+            return existing;
+        return MapMembers(source, context.Register(source, new global::Benchmark.Models.Organisation.CompanyDto()), context);
+    }
+
+    private static global::Benchmark.Models.Organisation.CompanyDto MapIntoCore(global::Benchmark.Models.Organisation.Company source, global::Benchmark.Models.Organisation.CompanyDto destination, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        if (context.TryGetVisited(source, out global::Benchmark.Models.Organisation.CompanyDto existing))
+            return existing;
+        context.Register(source, destination);
+        return MapMembers(source, destination, context);
+    }
+
+    private static global::Benchmark.Models.Organisation.CompanyDto MapMembers(global::Benchmark.Models.Organisation.Company source, global::Benchmark.Models.Organisation.CompanyDto destination, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        destination.DepartmentCount = (source.Departments == null) ? 0 : source.Departments.Count;
+        destination.Id = source.Id;
+        destination.Name = source.Name;
+        destination.Founded = source.Founded.ToString(null, global::System.Globalization.CultureInfo.InvariantCulture);
+        destination.Rating = ((double)(source.Rating));
+        destination.Status = ((global::Benchmark.Models.Organisation.CompanyStatusDto)(source.Status));
+        destination.Tags = (source.Tags == null) ? default(global::System.Collections.Generic.List<string>) : ((global::System.Collections.Generic.List<string>)(global::System.Linq.Enumerable.ToList<string>(global::System.Linq.Enumerable.Select<string, string>(source.Tags, (string item) => item))));
+        destination.Headquarters = global::Benchmark.Address_To_AddressDto_Mapper2.MapNestedInto(source.Headquarters, destination.Headquarters, context);
+        destination.Ceo = global::Benchmark.Employee_To_EmployeeDto_Mapper.MapNestedInto(source.Ceo, destination.Ceo, context);
+        destination.Departments = (source.Departments == null) ? default(global::System.Collections.Generic.List<global::Benchmark.Models.Organisation.DepartmentDto>) : ((global::System.Collections.Generic.List<global::Benchmark.Models.Organisation.DepartmentDto>)(global::System.Linq.Enumerable.ToList<global::Benchmark.Models.Organisation.DepartmentDto>(global::System.Linq.Enumerable.Select<global::Benchmark.Models.Organisation.Department, global::Benchmark.Models.Organisation.DepartmentDto>(source.Departments, (global::Benchmark.Models.Organisation.Department item1) => global::Benchmark.Department_To_DepartmentDto_Mapper.MapNested(item1, context)))));
+        return destination;
+    }
+}
+
+internal sealed class Coordinates_To_CoordinatesDto_Mapper : global::MapperR.Core.Abstractions.AbstractInternalMapper<global::Benchmark.Models.Organisation.CoordinatesDto>, global::MapperR.Core.Abstractions.IInternalMapper<global::Benchmark.Models.Organisation.Coordinates, global::Benchmark.Models.Organisation.CoordinatesDto>
+{
+    public Coordinates_To_CoordinatesDto_Mapper(global::System.IServiceProvider services) : base(services)
+    {
+    }
+
+    public global::Benchmark.Models.Organisation.CoordinatesDto Map(global::Benchmark.Models.Organisation.Coordinates source) => Map(source, (global::MapperR.Core.Abstractions.MappingContext)null);
+    public global::Benchmark.Models.Organisation.CoordinatesDto Map(global::Benchmark.Models.Organisation.Coordinates source, global::Benchmark.Models.Organisation.CoordinatesDto destination) => Map(source, destination, (global::MapperR.Core.Abstractions.MappingContext)null);
+    public global::Benchmark.Models.Organisation.CoordinatesDto Map(global::Benchmark.Models.Organisation.Coordinates source, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        global::System.ArgumentNullException.ThrowIfNull(source);
+        return MapCore(source, context);
+    }
+
+    public global::Benchmark.Models.Organisation.CoordinatesDto Map(global::Benchmark.Models.Organisation.Coordinates source, global::Benchmark.Models.Organisation.CoordinatesDto destination, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        global::System.ArgumentNullException.ThrowIfNull(source);
+        return MapIntoCore(source, destination, context);
+    }
+
+    public override global::Benchmark.Models.Organisation.CoordinatesDto MapInternal(object source) => Map((global::Benchmark.Models.Organisation.Coordinates)source);
+    public override global::Benchmark.Models.Organisation.CoordinatesDto MapInternal(object source, global::Benchmark.Models.Organisation.CoordinatesDto destination) => Map((global::Benchmark.Models.Organisation.Coordinates)source, destination);
+    internal static global::Benchmark.Models.Organisation.CoordinatesDto MapNested(global::Benchmark.Models.Organisation.Coordinates source, global::MapperR.Core.Abstractions.MappingContext context) => MapCore(source, context);
+    internal static global::Benchmark.Models.Organisation.CoordinatesDto MapNestedInto(global::Benchmark.Models.Organisation.Coordinates source, global::Benchmark.Models.Organisation.CoordinatesDto destination, global::MapperR.Core.Abstractions.MappingContext context) => MapIntoCore(source, destination, context);
+    private static global::Benchmark.Models.Organisation.CoordinatesDto MapCore(global::Benchmark.Models.Organisation.Coordinates source, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        return new global::Benchmark.Models.Organisation.CoordinatesDto
+        {
+            Latitude = ((decimal)(source.Latitude)),
+            Longitude = ((decimal)(source.Longitude))
+        };
+    }
+
+    private static global::Benchmark.Models.Organisation.CoordinatesDto MapIntoCore(global::Benchmark.Models.Organisation.Coordinates source, global::Benchmark.Models.Organisation.CoordinatesDto destination, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        return MapMembers(source, destination, context);
+    }
+
+    private static global::Benchmark.Models.Organisation.CoordinatesDto MapMembers(global::Benchmark.Models.Organisation.Coordinates source, global::Benchmark.Models.Organisation.CoordinatesDto destination, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        destination.Latitude = ((decimal)(source.Latitude));
+        destination.Longitude = ((decimal)(source.Longitude));
+        return destination;
+    }
+}
+
+internal sealed class Country_To_CountryDto_Mapper : global::MapperR.Core.Abstractions.AbstractInternalMapper<global::Benchmark.Models.Organisation.CountryDto>, global::MapperR.Core.Abstractions.IInternalMapper<global::Benchmark.Models.Organisation.Country, global::Benchmark.Models.Organisation.CountryDto>
+{
+    public Country_To_CountryDto_Mapper(global::System.IServiceProvider services) : base(services)
+    {
+    }
+
+    public global::Benchmark.Models.Organisation.CountryDto Map(global::Benchmark.Models.Organisation.Country source) => Map(source, (global::MapperR.Core.Abstractions.MappingContext)null);
+    public global::Benchmark.Models.Organisation.CountryDto Map(global::Benchmark.Models.Organisation.Country source, global::Benchmark.Models.Organisation.CountryDto destination) => Map(source, destination, (global::MapperR.Core.Abstractions.MappingContext)null);
+    public global::Benchmark.Models.Organisation.CountryDto Map(global::Benchmark.Models.Organisation.Country source, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        global::System.ArgumentNullException.ThrowIfNull(source);
+        return MapCore(source, context);
+    }
+
+    public global::Benchmark.Models.Organisation.CountryDto Map(global::Benchmark.Models.Organisation.Country source, global::Benchmark.Models.Organisation.CountryDto destination, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        global::System.ArgumentNullException.ThrowIfNull(source);
+        return destination == null ? MapCore(source, context) : MapIntoCore(source, destination, context);
+    }
+
+    public override global::Benchmark.Models.Organisation.CountryDto MapInternal(object source) => Map((global::Benchmark.Models.Organisation.Country)source);
+    public override global::Benchmark.Models.Organisation.CountryDto MapInternal(object source, global::Benchmark.Models.Organisation.CountryDto destination) => Map((global::Benchmark.Models.Organisation.Country)source, destination);
+    internal static global::Benchmark.Models.Organisation.CountryDto MapNested(global::Benchmark.Models.Organisation.Country source, global::MapperR.Core.Abstractions.MappingContext context) => source == null ? default(global::Benchmark.Models.Organisation.CountryDto) : MapCore(source, context);
+    internal static global::Benchmark.Models.Organisation.CountryDto MapNestedInto(global::Benchmark.Models.Organisation.Country source, global::Benchmark.Models.Organisation.CountryDto destination, global::MapperR.Core.Abstractions.MappingContext context) => source == null ? default(global::Benchmark.Models.Organisation.CountryDto) : destination == null ? MapCore(source, context) : MapIntoCore(source, destination, context);
+    private static global::Benchmark.Models.Organisation.CountryDto MapCore(global::Benchmark.Models.Organisation.Country source, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        return new global::Benchmark.Models.Organisation.CountryDto
+        {
+            Code = source.Code,
+            Name = source.Name
+        };
+    }
+
+    private static global::Benchmark.Models.Organisation.CountryDto MapIntoCore(global::Benchmark.Models.Organisation.Country source, global::Benchmark.Models.Organisation.CountryDto destination, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        return MapMembers(source, destination, context);
+    }
+
+    private static global::Benchmark.Models.Organisation.CountryDto MapMembers(global::Benchmark.Models.Organisation.Country source, global::Benchmark.Models.Organisation.CountryDto destination, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        destination.Code = source.Code;
+        destination.Name = source.Name;
+        return destination;
+    }
+}
+
+internal sealed class Department_To_DepartmentDto_Mapper : global::MapperR.Core.Abstractions.AbstractInternalMapper<global::Benchmark.Models.Organisation.DepartmentDto>, global::MapperR.Core.Abstractions.IInternalMapper<global::Benchmark.Models.Organisation.Department, global::Benchmark.Models.Organisation.DepartmentDto>
+{
+    public Department_To_DepartmentDto_Mapper(global::System.IServiceProvider services) : base(services)
+    {
+    }
+
+    public global::Benchmark.Models.Organisation.DepartmentDto Map(global::Benchmark.Models.Organisation.Department source) => Map(source, CreateContext());
+    public global::Benchmark.Models.Organisation.DepartmentDto Map(global::Benchmark.Models.Organisation.Department source, global::Benchmark.Models.Organisation.DepartmentDto destination) => Map(source, destination, CreateContext());
+    public global::Benchmark.Models.Organisation.DepartmentDto Map(global::Benchmark.Models.Organisation.Department source, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        global::System.ArgumentNullException.ThrowIfNull(source);
+        return MapCore(source, context);
+    }
+
+    public global::Benchmark.Models.Organisation.DepartmentDto Map(global::Benchmark.Models.Organisation.Department source, global::Benchmark.Models.Organisation.DepartmentDto destination, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        global::System.ArgumentNullException.ThrowIfNull(source);
+        return destination == null ? MapCore(source, context) : MapIntoCore(source, destination, context);
+    }
+
+    public override global::Benchmark.Models.Organisation.DepartmentDto MapInternal(object source) => Map((global::Benchmark.Models.Organisation.Department)source);
+    public override global::Benchmark.Models.Organisation.DepartmentDto MapInternal(object source, global::Benchmark.Models.Organisation.DepartmentDto destination) => Map((global::Benchmark.Models.Organisation.Department)source, destination);
+    internal static global::Benchmark.Models.Organisation.DepartmentDto MapNested(global::Benchmark.Models.Organisation.Department source, global::MapperR.Core.Abstractions.MappingContext context) => source == null ? default(global::Benchmark.Models.Organisation.DepartmentDto) : MapCore(source, context);
+    internal static global::Benchmark.Models.Organisation.DepartmentDto MapNestedInto(global::Benchmark.Models.Organisation.Department source, global::Benchmark.Models.Organisation.DepartmentDto destination, global::MapperR.Core.Abstractions.MappingContext context) => source == null ? default(global::Benchmark.Models.Organisation.DepartmentDto) : destination == null ? MapCore(source, context) : MapIntoCore(source, destination, context);
+    private static global::Benchmark.Models.Organisation.DepartmentDto MapCore(global::Benchmark.Models.Organisation.Department source, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        if (context.TryGetVisited(source, out global::Benchmark.Models.Organisation.DepartmentDto existing))
+            return existing;
+        return MapMembers(source, context.Register(source, new global::Benchmark.Models.Organisation.DepartmentDto()), context);
+    }
+
+    private static global::Benchmark.Models.Organisation.DepartmentDto MapIntoCore(global::Benchmark.Models.Organisation.Department source, global::Benchmark.Models.Organisation.DepartmentDto destination, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        if (context.TryGetVisited(source, out global::Benchmark.Models.Organisation.DepartmentDto existing))
+            return existing;
+        context.Register(source, destination);
+        return MapMembers(source, destination, context);
+    }
+
+    private static global::Benchmark.Models.Organisation.DepartmentDto MapMembers(global::Benchmark.Models.Organisation.Department source, global::Benchmark.Models.Organisation.DepartmentDto destination, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        destination.Code = source.Name.ToUpperInvariant();
+        destination.Name = source.Name;
+        destination.Budget = ((long)(source.Budget ?? default(int)));
+        destination.Manager = global::Benchmark.Employee_To_EmployeeDto_Mapper.MapNestedInto(source.Manager, destination.Manager, context);
+        destination.Employees = (source.Employees == null) ? default(global::Benchmark.Models.Organisation.EmployeeDto[]) : ((global::Benchmark.Models.Organisation.EmployeeDto[])(global::System.Linq.Enumerable.ToArray<global::Benchmark.Models.Organisation.EmployeeDto>(global::System.Linq.Enumerable.Select<global::Benchmark.Models.Organisation.Employee, global::Benchmark.Models.Organisation.EmployeeDto>(source.Employees, (global::Benchmark.Models.Organisation.Employee item) => global::Benchmark.Employee_To_EmployeeDto_Mapper.MapNested(item, context)))));
+        destination.Company = global::Benchmark.Company_To_CompanyDto_Mapper.MapNestedInto(source.Company, destination.Company, context);
+        return destination;
+    }
+}
+
+internal sealed class Employee_To_EmployeeDto_Mapper : global::MapperR.Core.Abstractions.AbstractInternalMapper<global::Benchmark.Models.Organisation.EmployeeDto>, global::MapperR.Core.Abstractions.IInternalMapper<global::Benchmark.Models.Organisation.Employee, global::Benchmark.Models.Organisation.EmployeeDto>
+{
+    public Employee_To_EmployeeDto_Mapper(global::System.IServiceProvider services) : base(services)
+    {
+    }
+
+    public global::Benchmark.Models.Organisation.EmployeeDto Map(global::Benchmark.Models.Organisation.Employee source) => Map(source, CreateContext());
+    public global::Benchmark.Models.Organisation.EmployeeDto Map(global::Benchmark.Models.Organisation.Employee source, global::Benchmark.Models.Organisation.EmployeeDto destination) => Map(source, destination, CreateContext());
+    public global::Benchmark.Models.Organisation.EmployeeDto Map(global::Benchmark.Models.Organisation.Employee source, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        global::System.ArgumentNullException.ThrowIfNull(source);
+        return MapCore(source, context);
+    }
+
+    public global::Benchmark.Models.Organisation.EmployeeDto Map(global::Benchmark.Models.Organisation.Employee source, global::Benchmark.Models.Organisation.EmployeeDto destination, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        global::System.ArgumentNullException.ThrowIfNull(source);
+        return destination == null ? MapCore(source, context) : MapIntoCore(source, destination, context);
+    }
+
+    public override global::Benchmark.Models.Organisation.EmployeeDto MapInternal(object source) => Map((global::Benchmark.Models.Organisation.Employee)source);
+    public override global::Benchmark.Models.Organisation.EmployeeDto MapInternal(object source, global::Benchmark.Models.Organisation.EmployeeDto destination) => Map((global::Benchmark.Models.Organisation.Employee)source, destination);
+    internal static global::Benchmark.Models.Organisation.EmployeeDto MapNested(global::Benchmark.Models.Organisation.Employee source, global::MapperR.Core.Abstractions.MappingContext context) => source == null ? default(global::Benchmark.Models.Organisation.EmployeeDto) : MapCore(source, context);
+    internal static global::Benchmark.Models.Organisation.EmployeeDto MapNestedInto(global::Benchmark.Models.Organisation.Employee source, global::Benchmark.Models.Organisation.EmployeeDto destination, global::MapperR.Core.Abstractions.MappingContext context) => source == null ? default(global::Benchmark.Models.Organisation.EmployeeDto) : destination == null ? MapCore(source, context) : MapIntoCore(source, destination, context);
+    private static global::Benchmark.Models.Organisation.EmployeeDto MapCore(global::Benchmark.Models.Organisation.Employee source, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        if (context.TryGetVisited(source, out global::Benchmark.Models.Organisation.EmployeeDto existing))
+            return existing;
+        return MapMembers(source, context.Register(source, new global::Benchmark.Models.Organisation.EmployeeDto()), context);
+    }
+
+    private static global::Benchmark.Models.Organisation.EmployeeDto MapIntoCore(global::Benchmark.Models.Organisation.Employee source, global::Benchmark.Models.Organisation.EmployeeDto destination, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        if (context.TryGetVisited(source, out global::Benchmark.Models.Organisation.EmployeeDto existing))
+            return existing;
+        context.Register(source, destination);
+        return MapMembers(source, destination, context);
+    }
+
+    private static global::Benchmark.Models.Organisation.EmployeeDto MapMembers(global::Benchmark.Models.Organisation.Employee source, global::Benchmark.Models.Organisation.EmployeeDto destination, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        destination.FullName = (source.FirstName + " ") + source.LastName;
+        destination.Id = ((long)(source.Id));
+        destination.Email = source.Email;
+        destination.Age = ((long)(source.Age));
+        destination.HireDate = source.HireDate.ToString(null, global::System.Globalization.CultureInfo.InvariantCulture);
+        destination.Salary = source.Salary;
+        destination.Level = ((int)(source.Level));
+        destination.Address = global::Benchmark.Address_To_AddressDto_Mapper2.MapNestedInto(source.Address, destination.Address, context);
+        destination.Skills = (source.Skills == null) ? default(global::System.Collections.Generic.IEnumerable<global::Benchmark.Models.Organisation.SkillDto>) : ((global::System.Collections.Generic.IEnumerable<global::Benchmark.Models.Organisation.SkillDto>)(global::System.Linq.Enumerable.ToList<global::Benchmark.Models.Organisation.SkillDto>(global::System.Linq.Enumerable.Select<global::Benchmark.Models.Organisation.Skill, global::Benchmark.Models.Organisation.SkillDto>(source.Skills, (global::Benchmark.Models.Organisation.Skill item) => global::Benchmark.Skill_To_SkillDto_Mapper.MapNested(item, context)))));
+        destination.Manager = global::Benchmark.Employee_To_EmployeeDto_Mapper.MapNestedInto(source.Manager, destination.Manager, context);
+        destination.Reports = (source.Reports == null) ? default(global::System.Collections.Generic.List<global::Benchmark.Models.Organisation.EmployeeDto>) : ((global::System.Collections.Generic.List<global::Benchmark.Models.Organisation.EmployeeDto>)(global::System.Linq.Enumerable.ToList<global::Benchmark.Models.Organisation.EmployeeDto>(global::System.Linq.Enumerable.Select<global::Benchmark.Models.Organisation.Employee, global::Benchmark.Models.Organisation.EmployeeDto>(source.Reports, (global::Benchmark.Models.Organisation.Employee item1) => global::Benchmark.Employee_To_EmployeeDto_Mapper.MapNested(item1, context)))));
+        destination.Department = global::Benchmark.Department_To_DepartmentDto_Mapper.MapNestedInto(source.Department, destination.Department, context);
+        return destination;
+    }
+}
+
+internal sealed class Skill_To_SkillDto_Mapper : global::MapperR.Core.Abstractions.AbstractInternalMapper<global::Benchmark.Models.Organisation.SkillDto>, global::MapperR.Core.Abstractions.IInternalMapper<global::Benchmark.Models.Organisation.Skill, global::Benchmark.Models.Organisation.SkillDto>
+{
+    public Skill_To_SkillDto_Mapper(global::System.IServiceProvider services) : base(services)
+    {
+    }
+
+    public global::Benchmark.Models.Organisation.SkillDto Map(global::Benchmark.Models.Organisation.Skill source) => Map(source, (global::MapperR.Core.Abstractions.MappingContext)null);
+    public global::Benchmark.Models.Organisation.SkillDto Map(global::Benchmark.Models.Organisation.Skill source, global::Benchmark.Models.Organisation.SkillDto destination) => Map(source, destination, (global::MapperR.Core.Abstractions.MappingContext)null);
+    public global::Benchmark.Models.Organisation.SkillDto Map(global::Benchmark.Models.Organisation.Skill source, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        global::System.ArgumentNullException.ThrowIfNull(source);
+        return MapCore(source, context);
+    }
+
+    public global::Benchmark.Models.Organisation.SkillDto Map(global::Benchmark.Models.Organisation.Skill source, global::Benchmark.Models.Organisation.SkillDto destination, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        global::System.ArgumentNullException.ThrowIfNull(source);
+        return destination == null ? MapCore(source, context) : MapIntoCore(source, destination, context);
+    }
+
+    public override global::Benchmark.Models.Organisation.SkillDto MapInternal(object source) => Map((global::Benchmark.Models.Organisation.Skill)source);
+    public override global::Benchmark.Models.Organisation.SkillDto MapInternal(object source, global::Benchmark.Models.Organisation.SkillDto destination) => Map((global::Benchmark.Models.Organisation.Skill)source, destination);
+    internal static global::Benchmark.Models.Organisation.SkillDto MapNested(global::Benchmark.Models.Organisation.Skill source, global::MapperR.Core.Abstractions.MappingContext context) => source == null ? default(global::Benchmark.Models.Organisation.SkillDto) : MapCore(source, context);
+    internal static global::Benchmark.Models.Organisation.SkillDto MapNestedInto(global::Benchmark.Models.Organisation.Skill source, global::Benchmark.Models.Organisation.SkillDto destination, global::MapperR.Core.Abstractions.MappingContext context) => source == null ? default(global::Benchmark.Models.Organisation.SkillDto) : destination == null ? MapCore(source, context) : MapIntoCore(source, destination, context);
+    private static global::Benchmark.Models.Organisation.SkillDto MapCore(global::Benchmark.Models.Organisation.Skill source, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        return new global::Benchmark.Models.Organisation.SkillDto
+        {
+            Name = source.Name,
+            Years = ((double)(source.Years))
+        };
+    }
+
+    private static global::Benchmark.Models.Organisation.SkillDto MapIntoCore(global::Benchmark.Models.Organisation.Skill source, global::Benchmark.Models.Organisation.SkillDto destination, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        return MapMembers(source, destination, context);
+    }
+
+    private static global::Benchmark.Models.Organisation.SkillDto MapMembers(global::Benchmark.Models.Organisation.Skill source, global::Benchmark.Models.Organisation.SkillDto destination, global::MapperR.Core.Abstractions.MappingContext context)
+    {
+        destination.Name = source.Name;
+        destination.Years = ((double)(source.Years));
+        return destination;
+    }
 }
 
 public static class MapperRGeneratedExtensions
@@ -197,6 +570,13 @@ public static class MapperRGeneratedExtensions
         global::Microsoft.Extensions.DependencyInjection.ServiceCollectionServiceExtensions.AddSingleton<global::MapperR.Core.Abstractions.IInternalMapper<global::Benchmark.Models.Customer, global::Benchmark.Models.CustomerDto>, global::Benchmark.Customer_To_CustomerDto_Mapper>(services);
         global::Microsoft.Extensions.DependencyInjection.ServiceCollectionServiceExtensions.AddSingleton<global::MapperR.Core.Abstractions.IInternalMapper<global::Benchmark.Models.Order, global::Benchmark.Models.OrderDto>, global::Benchmark.Order_To_OrderDto_Mapper>(services);
         global::Microsoft.Extensions.DependencyInjection.ServiceCollectionServiceExtensions.AddSingleton<global::MapperR.Core.Abstractions.IInternalMapper<global::Benchmark.Models.OrderLine, global::Benchmark.Models.OrderLineDto>, global::Benchmark.OrderLine_To_OrderLineDto_Mapper>(services);
+        global::Microsoft.Extensions.DependencyInjection.ServiceCollectionServiceExtensions.AddSingleton<global::MapperR.Core.Abstractions.IInternalMapper<global::Benchmark.Models.Organisation.Address, global::Benchmark.Models.Organisation.AddressDto>, global::Benchmark.Address_To_AddressDto_Mapper2>(services);
+        global::Microsoft.Extensions.DependencyInjection.ServiceCollectionServiceExtensions.AddSingleton<global::MapperR.Core.Abstractions.IInternalMapper<global::Benchmark.Models.Organisation.Company, global::Benchmark.Models.Organisation.CompanyDto>, global::Benchmark.Company_To_CompanyDto_Mapper>(services);
+        global::Microsoft.Extensions.DependencyInjection.ServiceCollectionServiceExtensions.AddSingleton<global::MapperR.Core.Abstractions.IInternalMapper<global::Benchmark.Models.Organisation.Coordinates, global::Benchmark.Models.Organisation.CoordinatesDto>, global::Benchmark.Coordinates_To_CoordinatesDto_Mapper>(services);
+        global::Microsoft.Extensions.DependencyInjection.ServiceCollectionServiceExtensions.AddSingleton<global::MapperR.Core.Abstractions.IInternalMapper<global::Benchmark.Models.Organisation.Country, global::Benchmark.Models.Organisation.CountryDto>, global::Benchmark.Country_To_CountryDto_Mapper>(services);
+        global::Microsoft.Extensions.DependencyInjection.ServiceCollectionServiceExtensions.AddSingleton<global::MapperR.Core.Abstractions.IInternalMapper<global::Benchmark.Models.Organisation.Department, global::Benchmark.Models.Organisation.DepartmentDto>, global::Benchmark.Department_To_DepartmentDto_Mapper>(services);
+        global::Microsoft.Extensions.DependencyInjection.ServiceCollectionServiceExtensions.AddSingleton<global::MapperR.Core.Abstractions.IInternalMapper<global::Benchmark.Models.Organisation.Employee, global::Benchmark.Models.Organisation.EmployeeDto>, global::Benchmark.Employee_To_EmployeeDto_Mapper>(services);
+        global::Microsoft.Extensions.DependencyInjection.ServiceCollectionServiceExtensions.AddSingleton<global::MapperR.Core.Abstractions.IInternalMapper<global::Benchmark.Models.Organisation.Skill, global::Benchmark.Models.Organisation.SkillDto>, global::Benchmark.Skill_To_SkillDto_Mapper>(services);
         return services;
     }
 }

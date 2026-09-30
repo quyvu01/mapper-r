@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MapperR.Core.Abstractions;
 using MapperR.Core.Implementations;
 using MapperR.Core.Registries;
 using MapperR.Generator.Tests.Models;
@@ -19,9 +20,11 @@ public class EquivalenceTests
         var expression = TypeMapExpressionBuilder<TSource, TDestination>.Build(registry);
         var runtime = expression.Compile();
         var generated = InMemoryCompiler.Compile(expression);
+        MappingContext NewContext() => new(new RegistryMapperResolver(registry));
 
         foreach (var input in inputs)
-            JsonSerializer.Serialize(generated(input)).ShouldBe(JsonSerializer.Serialize(runtime(input)));
+            JsonSerializer.Serialize(generated(input, NewContext()))
+                .ShouldBe(JsonSerializer.Serialize(runtime(input, NewContext())));
     }
 
     [Fact]
@@ -59,6 +62,17 @@ public class EquivalenceTests
     }
 
     [Fact]
+    public void Nullable_to_non_nullable_value_types_including_null()
+    {
+        var registry = DelegateProfile.BuildRegistry(p => p.Map<NullableSource, NullableTarget>()
+            .ForMember(d => d.Values, s => s.Values));
+
+        AssertEquivalent<NullableSource, NullableTarget>(registry,
+            new NullableSource { Count = 5, Total = 7, Values = [1, null, 3] },
+            new NullableSource());
+    }
+
+    [Fact]
     public void Collections_of_every_supported_shape_including_null()
     {
         var registry = DelegateProfile.BuildRegistry(
@@ -77,6 +91,18 @@ public class EquivalenceTests
                 AddressSequence = new List<Address> { new() { City = "Danang" } },
                 Scores = [1, 2, 3]
             },
+            new Person());
+    }
+
+    [Fact]
+    public void Ignored_members_are_left_out()
+    {
+        var registry = DelegateProfile.BuildRegistry(
+            p => p.Map<Address, AddressDto>(),
+            p => p.Map<Person, PersonDto>().Ignore(d => d.Name).Ignore(d => d.Address));
+
+        AssertEquivalent<Person, PersonDto>(registry,
+            new Person { Name = "Alice", Age = 30, Address = new Address { City = "Hanoi" } },
             new Person());
     }
 }

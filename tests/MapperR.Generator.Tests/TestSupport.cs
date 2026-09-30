@@ -42,18 +42,23 @@ internal static class InMemoryCompiler
         .. ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
         .Split(Path.PathSeparator)
         .Select(path => MetadataReference.CreateFromFile(path)),
-        MetadataReference.CreateFromFile(typeof(InMemoryCompiler).Assembly.Location)
+        MetadataReference.CreateFromFile(typeof(InMemoryCompiler).Assembly.Location),
+        MetadataReference.CreateFromFile(typeof(MappingContext).Assembly.Location)
     ];
 
-    public static Func<TSource, TDestination> Compile<TSource, TDestination>(
-        Expression<Func<TSource, TDestination>> expression)
+    /// <summary>
+    /// Nested calls are printed through <c>MapperRuntime</c> (no generated-mapper table here), so nested pairs
+    /// run on the runtime engine; the printed code of this pair itself is what is exercised.
+    /// </summary>
+    public static Func<TSource, MappingContext, TDestination> Compile<TSource, TDestination>(
+        Expression<Func<TSource, MappingContext, TDestination>> expression)
     {
         var printer = new CSharpExpressionPrinter(targetAssembly: null);
         var body = printer.PrintBody(expression);
         var code = $$"""
                      public static class GeneratedMap
                      {
-                         public static {{printer.PrintType(typeof(TDestination))}} Map({{printer.PrintType(typeof(TSource))}} {{printer.GetParameterName(expression.Parameters[0])}})
+                         public static {{printer.PrintType(typeof(TDestination))}} Map({{printer.PrintType(typeof(TSource))}} {{printer.GetParameterName(expression.Parameters[0])}}, global::MapperR.Core.Abstractions.MappingContext {{printer.GetParameterName(expression.Parameters[1])}})
                          {
                              return {{body}};
                          }
@@ -61,7 +66,8 @@ internal static class InMemoryCompiler
                      """;
 
         var assembly = CompileAssembly(code);
-        return assembly.GetType("GeneratedMap")!.GetMethod("Map")!.CreateDelegate<Func<TSource, TDestination>>();
+        return assembly.GetType("GeneratedMap")!.GetMethod("Map")!
+            .CreateDelegate<Func<TSource, MappingContext, TDestination>>();
     }
 
     public static System.Reflection.Assembly CompileAssembly(string code,

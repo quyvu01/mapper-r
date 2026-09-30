@@ -38,17 +38,19 @@ public class MapperCodeGeneratorTests
             .ShouldBe(generatedAssembly);
 
         var person = new Person { Name = "Alice", Address = new Address { City = "Hanoi" } };
-        var runtime = TypeMapExpressionBuilder<Person, PersonDto>.Build(registry).Compile();
+        var runtimeResolver = new RegistryMapperResolver(registry);
+        var runtimeMap = runtimeResolver.Get<Person, PersonDto>();
+        PersonDto Runtime(Person source) => runtimeMap.Map(source);
         var mapper = provider.GetRequiredService<IMapper>();
 
-        JsonSerializer.Serialize(mapper.Map<Person, PersonDto>(person)).ShouldBe(JsonSerializer.Serialize(runtime(person)));
-        JsonSerializer.Serialize(mapper.Map<PersonDto>(person)).ShouldBe(JsonSerializer.Serialize(runtime(person)));
+        JsonSerializer.Serialize(mapper.Map<Person, PersonDto>(person)).ShouldBe(JsonSerializer.Serialize(Runtime(person)));
+        JsonSerializer.Serialize(mapper.Map<PersonDto>(person)).ShouldBe(JsonSerializer.Serialize(Runtime(person)));
 
-        // Update form, generated vs runtime: Scores is not part of the profile so it must survive, and the
-        // existing nested Address must be updated in place rather than replaced.
-        var runtimeUpdate = TypeMapExpressionBuilder<Person, PersonDto>.BuildUpdate(registry).Compile();
+        // Update form, generated vs runtime: the existing nested Address must be updated in place rather than
+        // replaced. (Scores, List<int> → HashSet<long>, is mapped by convention, so it follows the source.)
+        PersonDto RuntimeUpdate(Person source, PersonDto destination) => runtimeMap.Map(source, destination);
         PersonDto Target() => new() { Age = 99, Scores = [7], Address = new AddressDto { City = "old" } };
-        var expected = JsonSerializer.Serialize(runtimeUpdate(person, Target()));
+        var expected = JsonSerializer.Serialize(RuntimeUpdate(person, Target()));
         var typedTarget = Target();
         var untypedTarget = Target();
         var typedAddress = typedTarget.Address;
@@ -58,7 +60,7 @@ public class MapperCodeGeneratorTests
         mapper.Map<PersonDto>((object)person, untypedTarget).ShouldBeSameAs(untypedTarget);
         JsonSerializer.Serialize(typedTarget).ShouldBe(expected);
         JsonSerializer.Serialize(untypedTarget).ShouldBe(expected);
-        typedTarget.Scores.ShouldBe([7L]);
+        typedTarget.Scores.ShouldBeNull();
         typedTarget.Address.ShouldBeSameAs(typedAddress);
         untypedTarget.Address.ShouldBeSameAs(untypedAddress);
         typedAddress.City.ShouldBe("Hanoi");
@@ -66,7 +68,13 @@ public class MapperCodeGeneratorTests
         // Source without an address: both engines clear the nested object.
         var withoutAddress = new Person { Name = "Bob" };
         mapper.Map(withoutAddress, typedTarget).Address.ShouldBeNull();
-        JsonSerializer.Serialize(typedTarget).ShouldBe(JsonSerializer.Serialize(runtimeUpdate(withoutAddress, Target())));
+        JsonSerializer.Serialize(typedTarget).ShouldBe(JsonSerializer.Serialize(RuntimeUpdate(withoutAddress, Target())));
+
+        // Null destination: both engines map into a new object instead of throwing.
+        var fromNull = mapper.Map(person, (PersonDto)null);
+        fromNull.ShouldNotBeNull();
+        JsonSerializer.Serialize(fromNull).ShouldBe(JsonSerializer.Serialize(RuntimeUpdate(person, null)));
+        JsonSerializer.Serialize(fromNull).ShouldBe(JsonSerializer.Serialize(Runtime(person)));
     }
 
     [Fact]
@@ -74,18 +82,69 @@ public class MapperCodeGeneratorTests
     {
         var registry = DelegateProfile.BuildRegistry(
             AddressMap,
-            p => p.Map<Person, PrivateSetterDto>(),
-            p => p.Map<Node, NodeDto>().ForMember(d => d.Child, s => s.Child));
+            p => p.Map<Person, PrivateSetterDto>());
 
         var result = MapperCodeGenerator.Generate(registry, targetAssembly: null, "Test.Generated");
 
         result.GeneratedCount.ShouldBe(1);
-        result.Skipped.Select(skipped => skipped.Destination).ShouldBe([typeof(NodeDto), typeof(PrivateSetterDto)],
-            ignoreOrder: true);
-        result.Skipped.Single(skipped => skipped.Destination == typeof(PrivateSetterDto)).Reason.ShouldContain("setter");
-        result.Skipped.Single(skipped => skipped.Destination == typeof(NodeDto)).Reason.ShouldContain("unbounded recursion");
+        result.Skipped.Single().Destination.ShouldBe(typeof(PrivateSetterDto));
+        result.Skipped.Single().Reason.ShouldContain("setter");
         result.Code.ShouldContain("Address_To_AddressDto_Mapper");
         result.Code.ShouldNotContain("PrivateSetterDto");
+    }
+
+    [Fact]
+    public void Generated_mappers_follow_self_references_and_keep_cyclic_data_shape()
+    {
+        Action<DelegateProfile> nodeMap = p => p.Map<Node, NodeDto>();
+        var result = MapperCodeGenerator.Generate(DelegateProfile.BuildRegistry(nodeMap), targetAssembly: null,
+            "Test.Generated");
+        result.Code.ShouldContain("Node_To_NodeDto_Mapper.MapNestedInto(");   // direct call, not through DI
+
+        using var provider = BuildProviderWithGeneratedMappers(result, nodeMap, out var generatedAssembly);
+        var mapper = provider.GetRequiredService<IInternalMapper<Node, NodeDto>>();
+        mapper.GetType().Assembly.ShouldBe(generatedAssembly);
+
+        var chain = mapper.Map(new Node { Child = new Node { Child = new Node() } });
+        chain.Child.Child.ShouldNotBeNull();
+        chain.Child.Child.Child.ShouldBeNull();
+
+        var loop = new Node();
+        loop.Child = loop;
+        var mappedLoop = mapper.Map(loop);
+        mappedLoop.Child.ShouldBeSameAs(mappedLoop);
+    }
+
+    [Fact]
+    public void A_generated_mapper_falls_back_to_the_runtime_engine_for_a_nested_pair_that_was_not_generated()
+    {
+        Action<DelegateProfile> holderMap = p => p.Map<Holder, HolderDto>();
+        Action<DelegateProfile> skippedChildMap = p => p.Map<Person, PrivateSetterDto>();   // private setter: not generated
+        var result = MapperCodeGenerator.Generate(DelegateProfile.BuildRegistry(holderMap, skippedChildMap),
+            targetAssembly: null, "Test.Generated");
+        result.Code.ShouldContain("MapperRuntime.MapNested<");
+
+        using var provider = BuildProviderWithGeneratedMappers(result, holderMap, out _, skippedChildMap);
+        var dto = provider.GetRequiredService<IMapper>().Map<Holder, HolderDto>(
+            new Holder { Person = new Person { Name = "Alice" } });
+
+        dto.Person.Name.ShouldBe("Alice");
+    }
+
+    private static ServiceProvider BuildProviderWithGeneratedMappers(GenerationResult result,
+        Action<DelegateProfile> profile, out System.Reflection.Assembly generatedAssembly,
+        params Action<DelegateProfile>[] otherProfiles)
+    {
+        generatedAssembly = InMemoryCompiler.CompileAssembly(result.Code,
+            typeof(Profile).Assembly, typeof(IServiceCollection).Assembly);
+
+        var services = new ServiceCollection();
+        services.AddMapR(_ => { });
+        foreach (var configure in otherProfiles.Prepend(profile))
+            services.AddSingleton<IProfile>(new DelegateProfile(configure));
+        generatedAssembly.GetType("Test.Generated.MapperRGeneratedExtensions")!
+            .GetMethod("AddGeneratedMappers")!.Invoke(null, [services]);
+        return services.BuildServiceProvider();
     }
 
     [Fact]

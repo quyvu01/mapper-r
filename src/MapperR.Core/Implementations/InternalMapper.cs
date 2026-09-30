@@ -1,4 +1,5 @@
 using MapperR.Core.Abstractions;
+using MapperR.Core.Registries;
 
 namespace MapperR.Core.Implementations;
 
@@ -6,29 +7,58 @@ internal class InternalMapper<TSource, TDestination> : AbstractInternalMapper<TD
     IInternalMapper<TSource, TDestination>
     where TDestination : new()
 {
-    private readonly Lazy<Func<TSource, TDestination>> _compiledMap;
-    private readonly Lazy<Func<TSource, TDestination, TDestination>> _mapUpdate;
+    private readonly Lazy<Func<TSource, MappingContext, TDestination>> _compiledMap;
+    private readonly Lazy<Func<TSource, TDestination, MappingContext, TDestination>> _mapUpdate;
+    private readonly bool _tracksReferences;
+    private readonly bool _needsContext;
 
-    public InternalMapper(RegistryProvider registryProvider)
+    // Used by DI (open generic registration).
+    public InternalMapper(RegistryProvider registryProvider, MapperResolver resolver)
+        : this(registryProvider.ProfileRegistry, resolver)
     {
-        var wireProfileRegistry = registryProvider.ProfileRegistry;
-        var expression = TypeMapExpressionBuilder<TSource, TDestination>.Build(wireProfileRegistry);
-        _compiledMap = new Lazy<Func<TSource, TDestination>>(expression.Compile);
-        _mapUpdate = new Lazy<Func<TSource, TDestination, TDestination>>(
-            () => TypeMapExpressionBuilder<TSource, TDestination>.BuildUpdate(wireProfileRegistry).Compile());
     }
 
-    public TDestination Map(TSource source)
+    internal InternalMapper(WireProfileRegistry registry, IMapperResolver resolver) : base(resolver)
     {
-        ArgumentNullException.ThrowIfNull(source);
-        return _compiledMap.Value.Invoke(source);
+        // Both trees are built eagerly so configuration errors surface when the mapper is resolved; compiling
+        // stays lazy.
+        var map = TypeMapExpressionBuilder<TSource, TDestination>.Build(registry);
+        var update = TypeMapExpressionBuilder<TSource, TDestination>.BuildUpdate(registry);
+
+        _tracksReferences = registry.TracksReferences(registry.Find(typeof(TSource), typeof(TDestination)));
+        // A pair without nested members never touches the context: top-level calls skip allocating one.
+        _needsContext = _tracksReferences || ParameterUsageVisitor.Uses(map, map.Parameters[1]) ||
+                        ParameterUsageVisitor.Uses(update, update.Parameters[2]);
+
+        _compiledMap = new Lazy<Func<TSource, MappingContext, TDestination>>(map.Compile);
+        _mapUpdate = new Lazy<Func<TSource, TDestination, MappingContext, TDestination>>(update.Compile);
     }
 
-    public TDestination Map(TSource source, TDestination destination)
+    public TDestination Map(TSource source) => Map(source, _needsContext ? CreateContext() : null);
+
+    public TDestination Map(TSource source, TDestination destination) =>
+        Map(source, destination, _needsContext ? CreateContext() : null);
+
+    public TDestination Map(TSource source, MappingContext context)
     {
         ArgumentNullException.ThrowIfNull(source);
-        ArgumentNullException.ThrowIfNull(destination);
-        return _mapUpdate.Value.Invoke(source, destination);
+        if (!_tracksReferences) return _compiledMap.Value(source, context);
+
+        // Register the new object before mapping its members, so a cycle in the data that leads back to this
+        // source reuses it instead of recursing.
+        if (context.TryGetVisited(source, out TDestination existing)) return existing;
+        return _mapUpdate.Value(source, context.Register(source, new TDestination()), context);
+    }
+
+    public TDestination Map(TSource source, TDestination destination, MappingContext context)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        if (destination is null) return Map(source, context);
+        
+        if (!_tracksReferences) return _mapUpdate.Value(source, destination, context);
+
+        if (context.TryGetVisited(source, out TDestination existing)) return existing;
+        return _mapUpdate.Value(source, context.Register(source, destination), context);
     }
 
     public override TDestination MapInternal(object source)

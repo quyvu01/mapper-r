@@ -33,4 +33,17 @@ public static class ExpressionExtensions
             return member.Member.Name;
         }
     }
+
+    extension<TSource>(Expression<Func<TSource, object>> expression)
+    {
+        internal Type GetSourceType()
+        {
+            if (expression.Body is UnaryExpression
+                {
+                    NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked
+                } unary)
+                return unary.Operand.Type;
+            return expression.Body.Type;
+        }
+    }
 }

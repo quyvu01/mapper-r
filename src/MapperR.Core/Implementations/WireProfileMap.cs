@@ -3,6 +3,7 @@ using System.Reflection;
 using MapperR.Core.Abstractions;
 using MapperR.Core.Entities;
 using MapperR.Core.Extensions;
+using MapperR.Core.Helpers;
 
 namespace MapperR.Core.Implementations;
 
@@ -11,30 +12,43 @@ internal class WireProfileMap<TSource, TDestination> : IWireProfile<TSource, TDe
     private const BindingFlags MemberBindingFlags = BindingFlags.Public | BindingFlags.Instance;
 
     private readonly List<IMemberProfile> _memberProfiles = [];
+    private readonly HashSet<string> _ignoreMembers = new(StringComparer.OrdinalIgnoreCase);
 
     public Type SourceType => typeof(TSource);
     public Type DestinationType => typeof(TDestination);
 
-    public IMemberProfile[] MemberProfiles => [.. _memberProfiles, .. GetConventionMemberProfiles()];
+    public IMemberProfile[] MemberProfiles => GetMemberProfiles();
+
+    private IMemberProfile[] GetMemberProfiles()
+    {
+        List<IMemberProfile> memberProfiles = [.. _memberProfiles, .. GetConventionMemberProfiles()];
+        return [.. memberProfiles.Where(x => !_ignoreMembers.Contains(x.MemberName))];
+    }
 
     public IWireProfile<TSource, TDestination> ForMember<TProp>(Expression<Func<TDestination, TProp>> selector,
         Expression<Func<TSource, object>> path)
     {
         var memberName = selector.GetMemberName();
-        var memberProfile = new MemberProfile<TSource, TDestination, TProp>(memberName, selector, path);
+        var sourceType = path.GetSourceType();
+        var destinationType = typeof(TProp);
+        var classify = MemberClassifier.ClassifyLocal(sourceType, destinationType);
+        var memberProfile =
+            new MemberProfile<TSource, TDestination, TProp>(memberName, selector, path, classify, IsExplicit: true);
         _memberProfiles.Add(memberProfile);
         return this;
     }
 
-    /// <summary>
-    /// Auto-matches destination members that were not explicitly configured via <see cref="ForMember{TProp}"/>
-    /// against a source member with the same name — by exact/assignable type, or, for numbers and enums, by
-    /// implicit/explicit convertibility (e.g. <c>int</c> → <c>long</c>, <c>MyEnum</c> → <c>int</c>).
-    /// </summary>
+    public IWireProfile<TSource, TDestination> Ignore<TProp>(Expression<Func<TDestination, TProp>> selector)
+    {
+        var memberName = selector.GetMemberName();
+        _ignoreMembers.Add(memberName);
+        return this;
+    }
+
     private IEnumerable<IMemberProfile> GetConventionMemberProfiles()
     {
-        var configuredNames = new HashSet<string>(
-            _memberProfiles.Select(member => member.MemberName), StringComparer.OrdinalIgnoreCase);
+        var configuredNames = new HashSet<string>(_memberProfiles.Select(member => member.MemberName),
+            StringComparer.OrdinalIgnoreCase);
 
         var sourceProperties = typeof(TSource).GetProperties(MemberBindingFlags)
             .Where(property => property.CanRead && property.GetIndexParameters().Length == 0)
@@ -47,36 +61,18 @@ internal class WireProfileMap<TSource, TDestination> : IWireProfile<TSource, TDe
         {
             if (configuredNames.Contains(destinationProperty.Name)) continue;
             if (!sourceProperties.TryGetValue(destinationProperty.Name, out var sourceProperty)) continue;
-            if (!IsCompatible(sourceProperty.PropertyType, destinationProperty.PropertyType)) continue;
+            var classify = Classify(sourceProperty.PropertyType, destinationProperty.PropertyType);
+            if (classify == MapClassify.Invalid) continue;
 
-            yield return CreateMemberProfile(sourceProperty, destinationProperty);
+            yield return CreateMemberProfile(sourceProperty, destinationProperty, classify);
         }
     }
 
-    private static bool IsCompatible(Type sourceType, Type destinationType)
-    {
-        if (sourceType is null) return false;
-        if (destinationType.IsAssignableFrom(sourceType)) return true;
-        if (!IsNumericOrEnum(sourceType) || !IsNumericOrEnum(destinationType)) return false;
+    private static MapClassify Classify(Type sourceType, Type destinationType) =>
+        MemberClassifier.ClassifyLocal(sourceType, destinationType);
 
-        try
-        {
-            _ = Expression.Convert(Expression.Parameter(sourceType), destinationType);
-            return true;
-        }
-        catch (InvalidOperationException)
-        {
-            return false;
-        }
-    }
-
-    private static bool IsNumericOrEnum(Type type)
-    {
-        var underlyingType = Nullable.GetUnderlyingType(type) ?? type;
-        return underlyingType.IsEnum || Type.GetTypeCode(underlyingType) is >= TypeCode.SByte and <= TypeCode.Decimal;
-    }
-
-    private static IMemberProfile CreateMemberProfile(PropertyInfo sourceProperty, PropertyInfo destinationProperty)
+    private static IMemberProfile CreateMemberProfile(PropertyInfo sourceProperty, PropertyInfo destinationProperty,
+        MapClassify classify)
     {
         var destinationParameter = Expression.Parameter(typeof(TDestination), "d");
         var selector = Expression.Lambda(
@@ -92,6 +88,6 @@ internal class WireProfileMap<TSource, TDestination> : IWireProfile<TSource, TDe
             .MakeGenericType(typeof(TSource), typeof(TDestination), destinationProperty.PropertyType);
 
         return (IMemberProfile)Activator.CreateInstance(memberProfileType,
-            destinationProperty.Name, selector, path)!;
+            destinationProperty.Name, selector, path, classify, false)!;
     }
 }

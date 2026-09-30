@@ -1,109 +1,115 @@
+using System.Globalization;
 using System.Linq.Expressions;
 using System.Reflection;
 using MapperR.Core.Abstractions;
+using MapperR.Core.Entities;
+using MapperR.Core.Helpers;
 using MapperR.Core.Registries;
 
 namespace MapperR.Core.Implementations;
 
 /// <summary>
-/// Composes the single <see cref="Expression{TDelegate}"/> of shape <c>Func&lt;TSource,TDestination&gt;</c>
-/// that is the sole source of truth for a type pair — compiled once for <c>Map()</c>, and (later) handed
-/// directly to <c>IQueryable.Select()</c> for <c>ProjectTo</c>, so both paths always agree.
+/// Composes the expression trees for one type pair — compiled for the runtime engine, and printed as C# by
+/// <c>maprgen</c>, so both always agree. Every member's handling comes from <see cref="MemberClassifier"/>.
+/// Nested pairs are not inlined: they become calls to <see cref="MapperRuntime"/>, resolved at runtime through
+/// the <see cref="MappingContext"/> parameter, so building a pair never builds its children and cycles between
+/// types cannot make building recurse.
 /// </summary>
 internal static class TypeMapExpressionBuilder<TSource, TDestination>
     where TDestination : new()
 {
-    public static Expression<Func<TSource, TDestination>> Build(WireProfileRegistry registry)
+    private static readonly MethodInfo MapNestedMethod = typeof(MapperRuntime).GetMethod(nameof(MapperRuntime.MapNested))!;
+
+    private static readonly MethodInfo MapNestedIntoMethod =
+        typeof(MapperRuntime).GetMethod(nameof(MapperRuntime.MapNestedInto))!;
+
+    public static Expression<Func<TSource, MappingContext, TDestination>> Build(WireProfileRegistry registry)
     {
         var profile = FindProfile(registry);
-        var sourceParameter = Expression.Parameter(typeof(TSource), "source");
+        var source = Expression.Parameter(typeof(TSource), "source");
+        var context = Expression.Parameter(typeof(MappingContext), "context");
 
         MemberBinding[] bindings =
         [
-            .. profile.MemberProfiles.Select(member => Expression.Bind(GetDestinationMember(member.Selector),
-                GetValueExpression(profile, member, registry, sourceParameter)))
+            .. Resolve(profile, registry).Select(member => Expression.Bind(
+                GetDestinationMember(member.Profile.Selector),
+                GetValueExpression(member, registry, source, context)))
         ];
 
         var body = Expression.MemberInit(Expression.New(typeof(TDestination)), bindings);
-        return Expression.Lambda<Func<TSource, TDestination>>(body, sourceParameter);
+        return Expression.Lambda<Func<TSource, MappingContext, TDestination>>(body, source, context);
     }
 
     /// <summary>
     /// The "map onto an existing instance" form: each mapped member is assigned the same value expression
-    /// <see cref="Build"/> uses, except nested objects, which are updated in place (their reference is kept, as
-    /// AutoMapper does) — recursively, via the nested pair's own update. Collections are replaced. Members
-    /// without a mapping keep their current value. Returns the destination so value-type destinations work too.
+    /// <see cref="Build"/> uses, except nested objects, which are updated in place through
+    /// <see cref="MapperRuntime.MapNestedInto{TSource,TDestination}"/> (their reference is kept, as AutoMapper
+    /// does). Collections are replaced. Members without a mapping keep their current value. Returns the
+    /// destination so value-type destinations work too.
     /// </summary>
-    public static Expression<Func<TSource, TDestination, TDestination>> BuildUpdate(WireProfileRegistry registry)
-    {
-        var source = Expression.Parameter(typeof(TSource), "source");
-        var destination = Expression.Parameter(typeof(TDestination), "destination");
-
-        var body = Expression.Block(BuildUpdateStatements(registry, source, destination), destination);
-        return Expression.Lambda<Func<TSource, TDestination, TDestination>>(body, source, destination);
-    }
-
-    /// <summary>Statements (void) updating <paramref name="destination"/> from <paramref name="source"/>.</summary>
-    private static Expression BuildUpdateStatements(WireProfileRegistry registry, Expression source,
-        Expression destination)
+    public static Expression<Func<TSource, TDestination, MappingContext, TDestination>> BuildUpdate(
+        WireProfileRegistry registry)
     {
         var profile = FindProfile(registry);
+        var source = Expression.Parameter(typeof(TSource), "source");
+        var destination = Expression.Parameter(typeof(TDestination), "destination");
+        var context = Expression.Parameter(typeof(MappingContext), "context");
+
         Expression[] statements =
         [
-            .. profile.MemberProfiles.Select(member =>
-                BuildMemberUpdate(profile, member, registry, source, destination))
+            .. Resolve(profile, registry).Select(member =>
+                BuildMemberUpdate(member, registry, source, destination, context))
         ];
 
-        return statements.Length == 0 ? Expression.Empty() : Expression.Block(typeof(void), statements);
+        var body = Expression.Block(
+            statements.Length == 0 ? Expression.Empty() : Expression.Block(typeof(void), statements),
+            destination);
+        return Expression.Lambda<Func<TSource, TDestination, MappingContext, TDestination>>(body, source,
+            destination, context);
     }
 
-    private static Expression BuildMemberUpdate(IWireProfile profile, IMemberProfile member,
-        WireProfileRegistry registry, Expression source, Expression destination)
-    {
-        var destinationMember = GetDestinationMember(member.Selector);
-        var target = Expression.MakeMemberAccess(destination, destinationMember);
-
-        return IsNestedObject(profile, member, registry) &&
-               CanUpdateInPlace(destinationMember, member.DestinationMemberType)
-            ? NestedObjectUpdate(member, registry, source, target)
-            : Expression.Assign(target, GetValueExpression(profile, member, registry, source));
-    }
+    private readonly record struct ResolvedMember(IMemberProfile Profile, MemberClassifier.Result Resolution);
 
     /// <summary>
-    /// <c>nested = &lt;source value&gt;; if (nested == null) target = null; else if (target == null)
-    /// target = &lt;new mapped instance&gt;; else &lt;nested update onto target&gt;</c>. The temporary keeps the
-    /// source value from being evaluated more than once (the update form is never translated to SQL).
+    /// Classifies every member against the registry. An explicit (<c>ForMember</c>) member that cannot be mapped
+    /// is a configuration error; a convention candidate that cannot be mapped (e.g. <c>Address</c> →
+    /// <c>AddressDto</c> without a <c>CreateMap</c>) is skipped.
     /// </summary>
-    private static Expression NestedObjectUpdate(IMemberProfile member, WireProfileRegistry registry,
-        Expression source, MemberExpression target)
+    private static IEnumerable<ResolvedMember> Resolve(IWireProfile profile, WireProfileRegistry registry)
     {
-        var (sourceType, destinationType) = (member.SourceMemberType, member.DestinationMemberType);
-        var nested = Expression.Variable(sourceType, "nested");
+        foreach (var member in profile.MemberProfiles)
+        {
+            var resolution =
+                MemberClassifier.Classify(member.SourceMemberType, member.DestinationMemberType, registry.Find);
+            if (resolution.Kind != MapClassify.Invalid)
+            {
+                yield return new ResolvedMember(member, resolution);
+                continue;
+            }
 
-        var intoTarget = Expression.IfThenElse(
-            Expression.Equal(target, Expression.Constant(null, destinationType)),
-            Expression.Assign(target, GetNestedMapBody(sourceType, destinationType, registry, nested)),
-            GetNestedUpdateStatements(sourceType, destinationType, registry, nested, target));
-
-        var body = sourceType.IsValueType && Nullable.GetUnderlyingType(sourceType) is null
-            ? intoTarget
-            : Expression.IfThenElse(
-                Expression.Equal(nested, Expression.Constant(null, sourceType)),
-                Expression.Assign(target, Expression.Default(destinationType)),
-                intoTarget);
-
-        return Expression.Block(typeof(void), [nested],
-            Expression.Assign(nested, UnwrapAndRebind(member.Path, source)), body);
+            if (member.IsExplicit)
+                throw new InvalidOperationException(
+                    $"{typeof(TSource).Name} -> {typeof(TDestination).Name}: member '{member.MemberName}' " +
+                    $"cannot be mapped: {resolution.Reason}.");
+        }
     }
 
-    /// <summary>Same classification as <see cref="GetValueExpression"/>: a registered, non-self, non-collection pair.</summary>
-    private static bool IsNestedObject(IWireProfile profile, IMemberProfile member, WireProfileRegistry registry)
+    private static Expression BuildMemberUpdate(ResolvedMember member, WireProfileRegistry registry,
+        Expression source, Expression destination, ParameterExpression context)
     {
-        if (GetElementType(member.SourceMemberType) is not null &&
-            GetElementType(member.DestinationMemberType) is not null) return false;
+        var destinationMember = GetDestinationMember(member.Profile.Selector);
+        var target = Expression.MakeMemberAccess(destination, destinationMember);
 
-        var nestedProfile = registry.Find(member.SourceMemberType, member.DestinationMemberType);
-        return nestedProfile is not null && nestedProfile != profile;
+        if (member.Resolution.Kind != MapClassify.Nested ||
+            !CanUpdateInPlace(destinationMember, member.Profile.DestinationMemberType))
+            return Expression.Assign(target, GetValueExpression(member, registry, source, context));
+
+        // target = MapNestedInto(value, target, context): updates the existing object (reference kept), creates
+        // it when target is null, clears it when value is null.
+        var value = UnwrapAndRebind(member.Profile.Path, source);
+        return Expression.Assign(target, Expression.Call(
+            MapNestedIntoMethod.MakeGenericMethod(value.Type, member.Profile.DestinationMemberType),
+            value, target, context));
     }
 
     /// <summary>
@@ -119,97 +125,90 @@ internal static class TypeMapExpressionBuilder<TSource, TDestination>
             $"No mapping profile registered for {typeof(TSource).Name} -> {typeof(TDestination).Name}. " +
             $"Register one via CreateMap<{typeof(TSource).Name}, {typeof(TDestination).Name}>().");
 
-    private static Expression GetValueExpression(IWireProfile currentProfile, IMemberProfile member,
-        WireProfileRegistry registry, Expression sourceParameter)
+    private static Expression GetValueExpression(ResolvedMember member, WireProfileRegistry registry,
+        Expression source, ParameterExpression context)
     {
-        var rawValue = UnwrapAndRebind(member.Path, sourceParameter);
+        var value = UnwrapAndRebind(member.Profile.Path, source);
+        var destinationType = member.Profile.DestinationMemberType;
 
-        var sourceElementType = GetElementType(member.SourceMemberType);
-        var destinationElementType = GetElementType(member.DestinationMemberType);
-        if (sourceElementType is not null && destinationElementType is not null)
-            return BuildCollectionValueExpression(currentProfile, member, registry, rawValue, sourceElementType,
-                destinationElementType);
-
-        var nestedProfile = registry.Find(member.SourceMemberType, member.DestinationMemberType);
-
-        if (nestedProfile is null)
-            return member.SourceMemberType == member.DestinationMemberType
-                ? rawValue
-                : Expression.Convert(rawValue, member.DestinationMemberType);
-
-        if (nestedProfile == currentProfile)
-            throw new InvalidOperationException(
-                $"Member '{member.MemberName}' on {currentProfile.DestinationType.Name} references its own " +
-                $"({currentProfile.SourceType.Name} -> {currentProfile.DestinationType.Name}) mapping, which " +
-                "would require unbounded recursion. Circular/self-referential mappings are not supported in " +
-                "this version.");
-
-        return InlineNestedMap(member.SourceMemberType, member.DestinationMemberType, registry, rawValue);
+        return member.Resolution.Kind == MapClassify.Collection
+            ? BuildCollectionValueExpression(value, destinationType, registry, context)
+            : EmitValue(member.Resolution.Kind, value, destinationType, context);
     }
 
-    /// <summary>
-    /// Builds <c>rawValue == null ? null : rawValue.Select(item => &lt;element map&gt;).ToList()/.ToArray()/...</c>
-    /// for a member whose source and destination are both an enumerable of some element type.
-    /// </summary>
-    private static Expression BuildCollectionValueExpression(IWireProfile currentProfile, IMemberProfile member,
-        WireProfileRegistry registry, Expression rawValue, Type sourceElementType, Type destinationElementType)
+    /// <summary>Emits a single value of an already-classified kind (a member, or an element of a collection).</summary>
+    private static Expression EmitValue(MapClassify kind, Expression value, Type destinationType,
+        ParameterExpression context) => kind switch
     {
-        var elementParameter = Expression.Parameter(sourceElementType, "item");
-        var elementBody = GetElementValueExpression(currentProfile, member, registry, elementParameter,
-            sourceElementType, destinationElementType);
-        var elementLambda = Expression.Lambda(elementBody, elementParameter);
+        MapClassify.Nested => Expression.Call(MapNestedMethod.MakeGenericMethod(value.Type, destinationType),
+            value, context),
+        MapClassify.ToText => ToText(value),
+        // TODO(DESIGN #20): EnumByName should map by name with a value fallback; converts by value for now.
+        MapClassify.Direct or MapClassify.Numeric or MapClassify.EnumByName => ConvertValue(value, destinationType),
+        _ => throw new InvalidOperationException($"A member classified as {kind} cannot be emitted.")
+    };
+
+    /// <summary>
+    /// Builds <c>value == null ? null : value.Select(item => &lt;element&gt;).ToList()/.ToArray()/...</c>. Nested
+    /// elements are mapped through <see cref="MapperRuntime.MapNested{TSource,TDestination}"/>, which maps a null
+    /// element to null.
+    /// </summary>
+    private static Expression BuildCollectionValueExpression(Expression value, Type destinationType,
+        WireProfileRegistry registry, ParameterExpression context)
+    {
+        var sourceElementType = MemberClassifier.GetElementType(value.Type)!;
+        var destinationElementType = MemberClassifier.GetElementType(destinationType)!;
+        var elementKind = MemberClassifier.Classify(sourceElementType, destinationElementType, registry.Find).Kind;
+
+        var item = Expression.Parameter(sourceElementType, "item");
+        var elementLambda =
+            Expression.Lambda(EmitValue(elementKind, item, destinationElementType, context), item);
 
         var selectCall = Expression.Call(typeof(Enumerable), nameof(Enumerable.Select),
-            [sourceElementType, destinationElementType], rawValue, elementLambda);
-
-        var materialized = MaterializeCollection(selectCall, member.DestinationMemberType, destinationElementType);
+            [sourceElementType, destinationElementType], value, elementLambda);
 
         return Expression.Condition(
-            Expression.Equal(rawValue, Expression.Constant(null, member.SourceMemberType)),
-            Expression.Default(member.DestinationMemberType),
-            materialized);
+            Expression.Equal(value, Expression.Constant(null, value.Type)),
+            Expression.Default(destinationType),
+            MaterializeCollection(selectCall, destinationType, destinationElementType));
     }
 
     /// <summary>
-    /// Value expression for a single element inside a mapped collection. Elements are assumed non-null
-    /// (no per-element null guard) — only the collection reference itself is null-checked.
+    /// Converts <paramref name="value"/> to <paramref name="targetType"/>. A null <c>Nullable&lt;T&gt;</c> going to a
+    /// non-nullable value type becomes <c>default</c> (<c>value ?? default(T)</c>) instead of throwing
+    /// "Nullable object must have a value" — the same result AutoMapper gives. <c>??</c> translates to SQL
+    /// <c>COALESCE</c>, so this stays usable for projections.
     /// </summary>
-    private static Expression GetElementValueExpression(IWireProfile currentProfile, IMemberProfile member,
-        WireProfileRegistry registry, ParameterExpression elementParameter, Type sourceElementType,
-        Type destinationElementType)
+    private static Expression ConvertValue(Expression value, Type targetType)
     {
-        if (sourceElementType == destinationElementType) return elementParameter;
+        if (value.Type == targetType) return value;
 
-        var elementProfile = registry.Find(sourceElementType, destinationElementType);
-        if (elementProfile is null) return Expression.Convert(elementParameter, destinationElementType);
+        if (Nullable.GetUnderlyingType(value.Type) is { } underlying
+            && targetType.IsValueType && Nullable.GetUnderlyingType(targetType) is null)
+            value = Expression.Coalesce(value, Expression.Default(underlying));
 
-        if (elementProfile == currentProfile)
-            throw new InvalidOperationException(
-                $"Member '{member.MemberName}' on {currentProfile.DestinationType.Name} maps a collection of its " +
-                $"own ({currentProfile.SourceType.Name} -> {currentProfile.DestinationType.Name}) type, which " +
-                "would require unbounded recursion. Circular/self-referential mappings are not supported in " +
-                "this version.");
-
-        return GetNestedMapBody(sourceElementType, destinationElementType, registry, elementParameter);
+        return value.Type == targetType ? value : Expression.Convert(value, targetType);
     }
 
     /// <summary>
-    /// Returns the element type of an enumerable type (array, <c>List&lt;T&gt;</c>, <c>IEnumerable&lt;T&gt;</c>,
-    /// custom collections implementing it, ...), or <c>null</c> if the type isn't a collection of something
-    /// (strings are deliberately excluded, even though they implement <c>IEnumerable&lt;char&gt;</c>).
+    /// Scalar → <c>string</c> (DESIGN #17): the type's own non-obsolete <c>ToString(string, IFormatProvider)</c>
+    /// with the invariant culture when it has one, otherwise <c>ToString()</c> (<c>bool</c>, <c>char</c>, enums —
+    /// the enum provider overload is <c>[Obsolete]</c>). A null <c>Nullable&lt;T&gt;</c> gives <c>null</c>, not the
+    /// <c>""</c> that <c>Nullable&lt;T&gt;.ToString()</c> would return.
     /// </summary>
-    private static Type GetElementType(Type type)
+    private static Expression ToText(Expression value)
     {
-        if (type == typeof(string)) return null;
-        if (type.IsArray) return type.GetElementType();
+        if (Nullable.GetUnderlyingType(value.Type) is not null)
+            return Expression.Condition(
+                Expression.Property(value, nameof(Nullable<int>.HasValue)),
+                ToText(Expression.Property(value, nameof(Nullable<int>.Value))),
+                Expression.Constant(null, typeof(string)));
 
-        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IEnumerable<>))
-            return type.GetGenericArguments()[0];
-
-        var enumerableInterface = type.GetInterfaces()
-            .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>));
-
-        return enumerableInterface?.GetGenericArguments()[0];
+        var formatted = value.Type.GetMethod(nameof(ToString), [typeof(string), typeof(IFormatProvider)]);
+        return formatted is not null && formatted.GetCustomAttribute<ObsoleteAttribute>() is null
+            ? Expression.Call(value, formatted, Expression.Constant(null, typeof(string)),
+                Expression.Property(null, typeof(CultureInfo), nameof(CultureInfo.InvariantCulture)))
+            : Expression.Call(value, value.Type.GetMethod(nameof(ToString), Type.EmptyTypes)!);
     }
 
     private static Expression MaterializeCollection(Expression selectCall, Type destinationType,
@@ -238,56 +237,6 @@ internal static class TypeMapExpressionBuilder<TSource, TDestination>
         return Expression.Convert(materialized, destinationType);
     }
 
-    /// <summary>
-    /// Recursively builds the nested pair's expression and beta-reduces it into <paramref name="value"/>
-    /// (substituting the nested lambda's parameter), instead of invoking a compiled delegate — keeping the
-    /// whole tree a single composed expression, so it stays translatable for a future <c>ProjectTo</c>.
-    /// </summary>
-    private static Expression GetNestedMapBody(Type sourceType, Type destinationType, WireProfileRegistry registry,
-        Expression value)
-    {
-        var nestedLambda = (LambdaExpression)InvokeNested(sourceType, destinationType, nameof(Build), registry);
-        return new ReplaceParameterVisitor(nestedLambda.Parameters[0], value).Visit(nestedLambda.Body);
-    }
-
-    private static Expression GetNestedUpdateStatements(Type sourceType, Type destinationType,
-        WireProfileRegistry registry, Expression source, Expression destination) =>
-        (Expression)InvokeNested(sourceType, destinationType, nameof(BuildUpdateStatements), registry, source,
-            destination);
-
-    /// <summary>
-    /// Calls a static member of the builder closed over runtime-only types, rethrowing the original exception
-    /// (e.g. a nested self-reference error) instead of a <see cref="TargetInvocationException"/> wrapper.
-    /// </summary>
-    private static object InvokeNested(Type sourceType, Type destinationType, string methodName,
-        params object[] arguments)
-    {
-        var method = typeof(TypeMapExpressionBuilder<,>).MakeGenericType(sourceType, destinationType)
-            .GetMethod(methodName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)!;
-        try
-        {
-            return method.Invoke(null, arguments)!;
-        }
-        catch (TargetInvocationException exception) when (exception.InnerException is not null)
-        {
-            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(exception.InnerException).Throw();
-            throw;
-        }
-    }
-
-    private static Expression InlineNestedMap(Type sourceType, Type destinationType, WireProfileRegistry registry,
-        Expression rawValue)
-    {
-        var substituted = GetNestedMapBody(sourceType, destinationType, registry, rawValue);
-
-        if (sourceType.IsValueType) return substituted;
-
-        return Expression.Condition(
-            Expression.Equal(rawValue, Expression.Constant(null, sourceType)),
-            Expression.Default(destinationType),
-            substituted);
-    }
-
     private static Expression UnwrapAndRebind(LambdaExpression path, Expression sourceParameter)
     {
         var body = path.Body;
@@ -313,4 +262,26 @@ internal sealed class ReplaceParameterVisitor(ParameterExpression from, Expressi
 {
     protected override Expression VisitParameter(ParameterExpression node) =>
         node == from ? to : base.VisitParameter(node);
+}
+
+/// <summary>Whether a lambda's body references one of its parameters (e.g. whether it needs a context).</summary>
+internal sealed class ParameterUsageVisitor : ExpressionVisitor
+{
+    private readonly ParameterExpression _parameter;
+    private bool _found;
+
+    private ParameterUsageVisitor(ParameterExpression parameter) => _parameter = parameter;
+
+    public static bool Uses(LambdaExpression lambda, ParameterExpression parameter)
+    {
+        var visitor = new ParameterUsageVisitor(parameter);
+        visitor.Visit(lambda.Body);
+        return visitor._found;
+    }
+
+    protected override Expression VisitParameter(ParameterExpression node)
+    {
+        _found |= node == _parameter;
+        return node;
+    }
 }

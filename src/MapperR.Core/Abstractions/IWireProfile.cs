@@ -13,4 +13,6 @@ public interface IWireProfile<TSource, TDestination> : IWireProfile
 {
     IWireProfile<TSource, TDestination> ForMember<TProp>(Expression<Func<TDestination, TProp>> selector,
         Expression<Func<TSource, object>> path);
+
+    IWireProfile<TSource, TDestination> Ignore<TProp>(Expression<Func<TDestination, TProp>> selector);
 }

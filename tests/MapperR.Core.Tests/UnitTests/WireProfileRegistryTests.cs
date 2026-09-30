@@ -143,23 +143,42 @@ public class WireProfileRegistryTests
     }
 
     [Fact]
-    public void Constructor_throws_when_two_profiles_are_mutually_dependent()
+    public void Mutually_dependent_profiles_are_accepted_and_track_references()
     {
         var profiles = BuildProfiles(
             p => p.Map<A, ADto>().ForMember(d => d.B, s => s.B),
-            p => p.Map<B, BDto>().ForMember(d => d.A, s => s.A));
+            p => p.Map<B, BDto>().ForMember(d => d.A, s => s.A),
+            p => p.Map<Address, AddressDto>());
 
-        Should.Throw<InvalidOperationException>(() => new WireProfileRegistry(profiles))
-            .Message.ShouldContain("Circular mapping dependency detected");
+        var registry = new WireProfileRegistry(profiles);
+
+        registry.TracksReferences(registry.Find(typeof(A), typeof(ADto))).ShouldBeTrue();
+        registry.TracksReferences(registry.Find(typeof(B), typeof(BDto))).ShouldBeTrue();
+        registry.TracksReferences(registry.Find(typeof(Address), typeof(AddressDto))).ShouldBeFalse();
     }
 
     [Fact]
-    public void Constructor_throws_when_the_same_type_pair_is_registered_by_two_profiles()
+    public void The_last_profile_wins_when_the_same_type_pair_is_registered_twice()
     {
         var profiles = BuildProfiles(
             p => p.Map<Person, PersonDto>(),
             p => p.Map<Person, PersonDto>());
 
-        Should.Throw<ArgumentException>(() => new WireProfileRegistry(profiles));
+        var registry = new WireProfileRegistry(profiles);
+
+        registry.Find(typeof(Person), typeof(PersonDto)).ShouldBeSameAs(profiles[1]);
+    }
+
+    [Fact]
+    public void Ignoring_the_member_that_closes_a_cycle_turns_reference_tracking_off()
+    {
+        var profiles = BuildProfiles(
+            p => p.Map<A, ADto>().ForMember(d => d.B, s => s.B),
+            p => p.Map<B, BDto>().ForMember(d => d.A, s => s.A).Ignore(d => d.A));
+
+        var registry = new WireProfileRegistry(profiles);
+
+        registry.TracksReferences(registry.Find(typeof(A), typeof(ADto))).ShouldBeFalse();
+        registry.TracksReferences(registry.Find(typeof(B), typeof(BDto))).ShouldBeFalse();
     }
 }

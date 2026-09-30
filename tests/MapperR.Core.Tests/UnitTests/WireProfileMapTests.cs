@@ -197,4 +197,56 @@ public class WireProfileMapTests
         member.SourceMemberType.ShouldBe(typeof(int?));
         member.DestinationMemberType.ShouldBe(typeof(int));
     }
+
+    [Fact]
+    public void Ignore_removes_a_convention_member()
+    {
+        var map = new WireProfileMap<Source, Destination>();
+
+        map.Ignore(d => d.Name);
+
+        map.MemberProfiles.Select(m => m.MemberName).ShouldNotContain(nameof(Destination.Name));
+        map.MemberProfiles.Select(m => m.MemberName).ShouldContain(nameof(Destination.Age));
+    }
+
+    [Fact]
+    public void Ignore_removes_an_explicit_member_whichever_is_declared_first()
+    {
+        var ignoreAfter = new WireProfileMap<Source, Destination>();
+        ignoreAfter.ForMember(d => d.OnlyOnDestination, s => s.OnlyOnSource).Ignore(d => d.OnlyOnDestination);
+
+        var ignoreBefore = new WireProfileMap<Source, Destination>();
+        ignoreBefore.Ignore(d => d.OnlyOnDestination).ForMember(d => d.OnlyOnDestination, s => s.OnlyOnSource);
+
+        ignoreAfter.MemberProfiles.Select(m => m.MemberName).ShouldNotContain(nameof(Destination.OnlyOnDestination));
+        ignoreBefore.MemberProfiles.Select(m => m.MemberName).ShouldNotContain(nameof(Destination.OnlyOnDestination));
+    }
+
+    [Fact]
+    public void Ignore_of_a_member_that_would_not_be_mapped_anyway_changes_nothing()
+    {
+        var plain = new WireProfileMap<Source, Destination>();
+        var ignored = new WireProfileMap<Source, Destination>();
+
+        ignored.Ignore(d => d.OnlyOnDestination);
+
+        ignored.MemberProfiles.Select(m => m.MemberName)
+            .ShouldBe(plain.MemberProfiles.Select(m => m.MemberName), ignoreOrder: true);
+    }
+
+    [Fact]
+    public void Ignore_returns_the_same_instance_for_fluent_chaining()
+    {
+        var map = new WireProfileMap<Source, Destination>();
+
+        map.Ignore(d => d.Name).ShouldBeSameAs(map);
+    }
+
+    [Fact]
+    public void Ignore_throws_when_the_destination_selector_is_not_a_direct_member()
+    {
+        var map = new WireProfileMap<Source, Destination>();
+
+        Should.Throw<ArgumentException>(() => map.Ignore(d => d.Name.Length));
+    }
 }

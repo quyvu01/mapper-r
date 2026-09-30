@@ -54,6 +54,30 @@ public class PrivateSetterDto
     public string Name { get; private set; }
 }
 
+public class NullableSource
+{
+    public int? Count { get; set; }
+    public int? Total { get; set; }
+    public List<int?> Values { get; set; }
+}
+
+public class NullableTarget
+{
+    public int Count { get; set; }
+    public long Total { get; set; }
+    public List<int> Values { get; set; }
+}
+
+public class Holder
+{
+    public Person Person { get; set; }
+}
+
+public class HolderDto
+{
+    public PrivateSetterDto Person { get; set; }
+}
+
 public class Node
 {
     public Node Child { get; set; }

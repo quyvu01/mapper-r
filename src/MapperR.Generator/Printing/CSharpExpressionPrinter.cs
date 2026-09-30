@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
+using MapperR.Core.Abstractions;
 using Microsoft.CodeAnalysis.CSharp;
 
 namespace MapperR.Generator.Printing;
@@ -16,7 +17,14 @@ namespace MapperR.Generator.Printing;
 /// The assembly the generated code is compiled into; <c>internal</c> types and members are only
 /// accessible when they belong to it. <c>null</c> means only <c>public</c> ones are accessible.
 /// </param>
-internal sealed class CSharpExpressionPrinter(Assembly targetAssembly)
+/// <param name="generatedMappers">
+/// Fully qualified class name of each generated mapper, by (source, destination) pair. Nested calls to a generated
+/// pair (<see cref="MapperRuntime.MapNested{TSource,TDestination}"/>) are printed as a direct call to that class;
+/// calls to other pairs keep going through <see cref="MapperRuntime"/> (the runtime engine).
+/// </param>
+internal sealed class CSharpExpressionPrinter(
+    Assembly targetAssembly,
+    IReadOnlyDictionary<(Type Source, Type Destination), string> generatedMappers = null)
 {
     private static readonly Dictionary<Type, string> Keywords = new()
     {
@@ -325,6 +333,11 @@ internal sealed class CSharpExpressionPrinter(Assembly targetAssembly)
 
         var target = call.Object is null ? PrintType(method.DeclaringType!) : Wrap(call.Object);
         var arguments = string.Join(", ", call.Arguments.Select(Print));
+
+        if (method.DeclaringType == typeof(MapperRuntime) && method.IsGenericMethod && generatedMappers is not null
+            && generatedMappers.TryGetValue(
+                (method.GetGenericArguments()[0], method.GetGenericArguments()[1]), out var generatedMapper))
+            return $"{generatedMapper}.{method.Name}({arguments})";
 
         if (method.IsSpecialName)
             return method.Name == "get_Item" && call.Object is not null
