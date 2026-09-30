@@ -211,6 +211,30 @@ public class ComplexGeneratedMappingTests
     }
 
     [Fact]
+    public void Top_level_collections_use_the_generated_element_mappers_and_match_the_runtime_engine()
+    {
+        using var generated = BuildGeneratedProvider();
+        var runtimeServices = new ServiceCollection();
+        runtimeServices.AddMapR(_ => { });
+        runtimeServices.AddSingleton<IProfile>(new DelegateProfile(Organisation));
+        using var runtime = runtimeServices.BuildServiceProvider();
+        var employees = CreateAcme().Departments.SelectMany(d => d.Employees).Where(e => e is not null)
+            .Distinct().ToList();
+
+        var fromGenerated = generated.GetRequiredService<IMapper>().Map<EmployeeDto[]>(employees);
+        var fromRuntime = runtime.GetRequiredService<IMapper>().Map<EmployeeDto[]>(employees);
+
+        generated.GetRequiredService<IInternalMapper<Employee, EmployeeDto>>().GetType().Assembly
+            .ShouldBe(Generated.Value.Assembly);
+        Graph(fromGenerated).ShouldBe(Graph(fromRuntime));
+
+        // The elements share one context: the CEO reached as an element and as the CTO's manager is one object.
+        fromGenerated.Length.ShouldBe(4);
+        fromGenerated[1].Manager.ShouldBeSameAs(fromGenerated[0]);
+        fromGenerated[2].Manager.ShouldBeSameAs(fromGenerated[1]);
+    }
+
+    [Fact]
     public void Generated_mappers_keep_back_references_and_shared_employees()
     {
         using var provider = BuildGeneratedProvider();

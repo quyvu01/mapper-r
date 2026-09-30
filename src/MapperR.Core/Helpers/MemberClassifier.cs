@@ -27,19 +27,47 @@ internal static class MemberClassifier
 
         if (find(s, d) is { } nested) return new Result(MapClassify.Nested, nested, null);
 
-        if (GetElementType(s) is { } se && GetElementType(d) is { } de)
-        {
-            var element = Classify(se, de, find);
-            return element.Kind switch
-            {
-                MapClassify.Collection => Invalid("nested collections are not supported yet"),
-                MapClassify.Invalid => Invalid($"elements: {element.Reason}"),
-                _ => new Result(MapClassify.Collection, element.NestedProfile, null)
-            };
-        }
+        if (GetElementType(s) is not null && GetElementType(d) is not null) return ClassifyCollection(s, d, find);
 
         return Invalid($"no CreateMap<{s.Name}, {d.Name}>() is registered");
     }
+
+    /// <summary>
+    /// A collection mapped to a collection: the destination must be a shape the mapper can build and the element
+    /// pair must be mappable. Used for collection members and for <c>Map&lt;Dst[]&gt;(source)</c> alike. The result's
+    /// <see cref="Result.NestedProfile"/> is the element pair when the elements are objects with their own profile.
+    /// </summary>
+    public static Result ClassifyCollection(Type s, Type d, Func<Type, Type, IWireProfile> find)
+    {
+        if (!IsSupportedCollectionDestination(d))
+            return Invalid($"destination collection type {TypeNames.Describe(d)} is not supported; use an array, " +
+                           "List<T>, HashSet<T>, IEnumerable<T>, ICollection<T>, IList<T>, IReadOnlyCollection<T> or " +
+                           "IReadOnlyList<T>");
+
+        var element = Classify(GetElementType(s)!, GetElementType(d)!, find);
+        return element.Kind switch
+        {
+            MapClassify.Collection => Invalid("nested collections are not supported yet"),
+            MapClassify.Invalid => Invalid($"elements: {element.Reason}"),
+            _ => new Result(MapClassify.Collection, element.NestedProfile, null)
+        };
+    }
+
+    private static readonly HashSet<Type> SupportedCollectionDefinitions =
+    [
+        typeof(List<>), typeof(HashSet<>), typeof(IEnumerable<>), typeof(ICollection<>), typeof(IList<>),
+        typeof(IReadOnlyCollection<>), typeof(IReadOnlyList<>)
+    ];
+
+    /// <summary>
+    /// The destinations a collection can be built as: a one-dimensional array, <c>List&lt;T&gt;</c>,
+    /// <c>HashSet&lt;T&gt;</c>, and the interfaces a <c>List&lt;T&gt;</c> satisfies (they come back as a
+    /// <c>List&lt;T&gt;</c>).
+    /// </summary>
+    internal static bool IsSupportedCollectionDestination(Type type) =>
+        type.IsArray
+            ? type.GetArrayRank() == 1
+            : type.IsGenericType && SupportedCollectionDefinitions.Contains(type.GetGenericTypeDefinition());
 
     private static Result Invalid(string reason) => new(MapClassify.Invalid, null, reason);
     private static bool IsLeaf(Type type) => type == typeof(string) || type.IsScalar();

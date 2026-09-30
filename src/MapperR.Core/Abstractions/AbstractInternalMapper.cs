@@ -31,6 +31,13 @@ public abstract class AbstractInternalMapper<TDestination>
     /// </summary>
     protected MappingContext SharedContext => _resolver.SharedContext;
 
+    private protected MappingContext NewContext(ContextKind kind) => kind switch
+    {
+        ContextKind.None => null,
+        ContextKind.Shared => SharedContext,
+        _ => CreateContext()
+    };
+
     public abstract TDestination MapInternal(object source);
     public abstract TDestination MapInternal(object source, TDestination destination);
 }

@@ -1,5 +1,3 @@
-using System.Text;
-
 namespace MapperR.Core.Helpers;
 
 /// <summary>
@@ -14,7 +12,7 @@ internal static class ProfileValidator
         var destinationIsCollection = IsFrameworkCollection(destination);
         if (!sourceIsCollection && !destinationIsCollection) return;
 
-        var pair = $"CreateMap<{Describe(source)}, {Describe(destination)}>()";
+        var pair = $"CreateMap<{TypeNames.Describe(source)}, {TypeNames.Describe(destination)}>()";
         if (sourceIsCollection != destinationIsCollection)
             throw new InvalidOperationException(
                 $"{pair}: a collection cannot be mapped to a single object or the other way round. " +
@@ -24,7 +22,7 @@ internal static class ProfileValidator
             (MemberClassifier.GetElementType(source)!, MemberClassifier.GetElementType(destination)!);
         throw new InvalidOperationException(
             $"{pair}: collections are not mapped through a profile of their own; they are mapped through their " +
-            $"element pair. Register CreateMap<{Describe(sourceElement)}, {Describe(destinationElement)}>() instead.");
+            $"element pair. Register CreateMap<{TypeNames.Describe(sourceElement)}, {TypeNames.Describe(destinationElement)}>() instead.");
     }
 
     /// <summary>
@@ -37,16 +35,4 @@ internal static class ProfileValidator
         type.IsArray ||
         (MemberClassifier.GetElementType(type) is not null &&
          type.Namespace is { } ns && (ns == "System.Collections" || ns.StartsWith("System.Collections.", StringComparison.Ordinal)));
-
-    /// <summary>A readable name for messages: <c>List&lt;Person&gt;</c> rather than <c>List`1</c>.</summary>
-    private static string Describe(Type type)
-    {
-        if (type.IsArray) return $"{Describe(type.GetElementType()!)}[{new string(',', type.GetArrayRank() - 1)}]";
-        if (!type.IsGenericType) return type.Name;
-
-        var name = type.Name;
-        var builder = new StringBuilder(name[..name.IndexOf('`')]).Append('<');
-        builder.AppendJoin(", ", type.GetGenericArguments().Select(Describe));
-        return builder.Append('>').ToString();
-    }
 }

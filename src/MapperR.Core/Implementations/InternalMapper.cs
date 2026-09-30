@@ -7,18 +7,6 @@ internal class InternalMapper<TSource, TDestination> : AbstractInternalMapper<TD
     IInternalMapper<TSource, TDestination>
     where TDestination : new()
 {
-    private enum ContextKind
-    {
-        /// <summary>The trees never touch the context.</summary>
-        None,
-
-        /// <summary>Nested members only: nothing below can reach a cycle, so one stateless context serves every call.</summary>
-        Shared,
-
-        /// <summary>Depth guard and reference tracking: one context per top-level call.</summary>
-        PerCall
-    }
-
     private readonly Lazy<Func<TSource, MappingContext, TDestination>> _compiledMap;
     private readonly Lazy<Func<TSource, TDestination, MappingContext, TDestination>> _mapUpdate;
     private readonly bool _tracksReferences;
@@ -44,10 +32,7 @@ internal class InternalMapper<TSource, TDestination> : AbstractInternalMapper<TD
         _tracksReferences = registry.TracksReferences(profile);
         var usesContext = ParameterUsageVisitor.Uses(map, map.Parameters[1]) ||
                           ParameterUsageVisitor.Uses(update, update.Parameters[2]);
-        _contextKind = _tracksReferences || (usesContext && registry.ReachesCycle(profile)) ? ContextKind.PerCall
-            : !usesContext ? ContextKind.None
-            : optimizations.HasFlag(MapperOptimizations.SharedContextWhenAcyclic) ? ContextKind.Shared
-            : ContextKind.PerCall;
+        _contextKind = ContextKinds.Choose(_tracksReferences, usesContext, registry.ReachesCycle(profile), optimizations);
 
         _compiledMap = new Lazy<Func<TSource, MappingContext, TDestination>>(() =>
             RuntimeExpressionOptimizer.Hoist(map, optimizations).Compile());
@@ -55,12 +40,7 @@ internal class InternalMapper<TSource, TDestination> : AbstractInternalMapper<TD
             RuntimeExpressionOptimizer.Hoist(update, optimizations).Compile());
     }
 
-    private MappingContext NewContext() => _contextKind switch
-    {
-        ContextKind.None => null,
-        ContextKind.Shared => SharedContext,
-        _ => CreateContext()
-    };
+    private MappingContext NewContext() => NewContext(_contextKind);
 
     public TDestination Map(TSource source) => Map(source, NewContext());
 
