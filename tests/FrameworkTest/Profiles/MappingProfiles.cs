@@ -11,6 +11,10 @@ public class MappingProfiles : Profile
         CreateMap<Address, AddressResponse>();
 
         CreateMap<Person, PersonResponse>()
-            .ForMember(x => x.Name, p => $"{p.Name}-SomeOtherValue");
+            .ForMember(x => x.Name,
+                opt => opt.MapFrom(p => $"{p.Name}-SomeOtherValue"))
+            .ForMember(x => x.Alias,
+                opt => opt.MapFrom((p, ps) => $"{p.Name} -- {ps.Alias}"))
+            .ForMember(x => x.Addresses, opt => opt.Ignore());
     }
 }

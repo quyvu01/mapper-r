@@ -2,13 +2,6 @@ using MapperR.Core.Helpers;
 
 namespace MapperR.Core.Extensions;
 
-/// <summary>
-/// Provides extension methods for Type reflection and introspection.
-/// </summary>
-/// <remarks>
-/// These utilities support the FxMap framework's reflection-based property discovery
-/// and type analysis capabilities.
-/// </remarks>
 public static class TypeExtensions
 {
     extension(Type type)

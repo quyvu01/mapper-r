@@ -9,12 +9,10 @@ using Microsoft.Extensions.DependencyInjection;
 
 var serviceCollection = new ServiceCollection();
 serviceCollection
-    .AddMapR(cfg => { cfg.AddProfilesFromAssembly(typeof(Program).Assembly); });
+    .AddMapperR(cfg => { cfg.AddProfilesFromAssembly(typeof(Program).Assembly); });
 var serviceProvider = serviceCollection.BuildServiceProvider();
 var mapper = serviceProvider.GetRequiredService<IMapper>();
 
-var resolvedMapper = serviceProvider.GetRequiredService<IInternalMapper<Person, PersonResponse>>();
-Console.WriteLine($"resolved mapper = {resolvedMapper.GetType().Name}");
 var person = new Person { Name = "Abc", Addresses = [new Address { City = "Hanoi" }] };
 var personResponse = mapper.Map<PersonResponse>(person);
 

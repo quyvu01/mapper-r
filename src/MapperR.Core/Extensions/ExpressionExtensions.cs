@@ -46,4 +46,17 @@ public static class ExpressionExtensions
             return expression.Body.Type;
         }
     }
+
+    extension<TSource, TDestination>(Expression<Func<TSource, TDestination, object>> expression)
+    {
+        internal Type GetSourceType()
+        {
+            if (expression.Body is UnaryExpression
+                {
+                    NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked
+                } unary)
+                return unary.Operand.Type;
+            return expression.Body.Type;
+        }
+    }
 }

@@ -1,8 +1,5 @@
 namespace MapperR.Core.Helpers;
 
-/// <summary>
-/// Provides general-purpose helper methods used throughout the FxMap framework.
-/// </summary>
 public static class GeneralHelpers
 {
     /// <summary>

@@ -1,4 +1,3 @@
-using MapperR.Core.Helpers;
 using MapperR.Core.Implementations;
 
 namespace MapperR.Core.Abstractions;
@@ -15,8 +14,7 @@ public abstract class Profile : IProfile
     /// </exception>
     protected IWireProfile<TSource, TDestination> CreateMap<TSource, TDestination>()
     {
-        ProfileValidator.ValidateMap(typeof(TSource), typeof(TDestination));
-        var profileMap = new WireProfileMap<TSource, TDestination>();
+        var profileMap = new WireProfile<TSource, TDestination>();
         _wireProfiles.Add(profileMap);
         return profileMap;
     }
