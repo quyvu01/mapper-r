@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/Test/">
+    <Project Path="tests/AutoMapperFuncTest/AutoMapperFuncTest.csproj" />
     <Project Path="tests/FrameworkTest/FrameworkTest.csproj" />
   </Folder>
   <Project Path="src\MapperR.Core\MapperR.Core.csproj" />

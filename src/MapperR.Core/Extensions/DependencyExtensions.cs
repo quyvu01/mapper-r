@@ -14,9 +14,11 @@ public static class DependencyExtensions
         ArgumentNullException.ThrowIfNull(options);
         var configuration = new MapperConfiguration(services);
         options.Invoke(configuration);
-        configuration.AddProfilesToContainer();
-        services.AddSingleton<IWireProfilesProvider, WireProfilesProvider>();
-        services.AddTransient<IMapper, Mapper>();
+        configuration.Configure();
+        services.AddSingleton<IWireProfileProvider, WireProfileProvider>();
+        services.AddSingleton(typeof(IProfileBuilder<,>), typeof(ProfileBuilder<,>));
+        services.AddSingleton(typeof(IInternalMapper<,>), typeof(InternalMapper<,>));
+        services.AddSingleton<IMapper, Mapper>();
         return services;
     }
 }

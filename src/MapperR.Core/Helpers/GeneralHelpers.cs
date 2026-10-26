@@ -1,3 +1,5 @@
+using System.Reflection;
+
 namespace MapperR.Core.Helpers;
 
 public static class GeneralHelpers
@@ -35,5 +37,38 @@ public static class GeneralHelpers
     {
         var underlyingType = Nullable.GetUnderlyingType(type) ?? type;
         return underlyingType.IsPrimitive || underlyingType.IsEnum || ScalarStructs.Contains(underlyingType);
+    }
+
+    public static bool CanConvertNumeric(Type sourceProp, Type targetProp)
+    {
+        var sourceType = Nullable.GetUnderlyingType(sourceProp) ?? sourceProp;
+        var targetType = Nullable.GetUnderlyingType(targetProp) ?? targetProp;
+
+        // Verify both types are actually numeric
+        if (!IsNumericType(sourceType) || !IsNumericType(targetType)) return false;
+
+        // All built-in numeric types implement IConvertible and can convert to each other
+        return typeof(IConvertible).IsAssignableFrom(sourceType) && typeof(IConvertible).IsAssignableFrom(targetType);
+    }
+
+    private static bool IsNumericType(Type type)
+    {
+        switch (Type.GetTypeCode(type))
+        {
+            case TypeCode.Byte:
+            case TypeCode.SByte:
+            case TypeCode.UInt16:
+            case TypeCode.Int16:
+            case TypeCode.UInt32:
+            case TypeCode.Int32:
+            case TypeCode.UInt64:
+            case TypeCode.Int64:
+            case TypeCode.Single:
+            case TypeCode.Double:
+            case TypeCode.Decimal:
+                return true;
+            default:
+                return false;
+        }
     }
 }

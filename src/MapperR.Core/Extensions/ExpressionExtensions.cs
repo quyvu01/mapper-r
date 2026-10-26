@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using MapperR.Core.Exceptions;
 
 namespace MapperR.Core.Extensions;
 
@@ -25,38 +26,29 @@ public static class ExpressionExtensions
                 body = unary.Operand;
 
             if (body is not MemberExpression { Expression: ParameterExpression } member)
-                throw new ArgumentException(
-                    $"Expression '{expression}' must be a direct member access on the parameter " +
-                    "(e.g. 'x => x.Name'), not a nested path (e.g. 'x => x.Address.Name') or any other shape.",
-                    nameof(expression));
+                throw MapperException.InvalidSelector(expression, nameof(expression));
 
             return member.Member.Name;
         }
     }
 
-    extension<TSource>(Expression<Func<TSource, object>> expression)
+    extension(LambdaExpression expression)
     {
-        internal Type GetSourceType()
-        {
-            if (expression.Body is UnaryExpression
-                {
-                    NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked
-                } unary)
-                return unary.Operand.Type;
-            return expression.Body.Type;
-        }
-    }
+        internal Type GetBodyType() => expression.Body.Type;
 
-    extension<TSource, TDestination>(Expression<Func<TSource, TDestination, object>> expression)
-    {
-        internal Type GetSourceType()
+        /// <summary>
+        /// Removes the <c>Convert(x, object)</c> the compiler adds around a value type in a
+        /// <c>Func&lt;..., object&gt;</c> lambda. A cast the user wrote (<c>(long)x.N</c>, <c>(string)x.Obj</c>) is kept.
+        /// </summary>
+        internal LambdaExpression UnwrapBoxing()
         {
             if (expression.Body is UnaryExpression
                 {
-                    NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked
-                } unary)
-                return unary.Operand.Type;
-            return expression.Body.Type;
+                    NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked,
+                    Type: var type
+                } unary && type == typeof(object))
+                return Expression.Lambda(unary.Operand, expression.Parameters);
+            return expression;
         }
     }
 }

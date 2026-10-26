@@ -2,7 +2,8 @@ namespace FrameworkTest.Dtos;
 
 public class PersonResponse
 {
-    public string Name { get; set; }
-    public string Alias { get; set; }
-    public List<AddressResponse> Addresses { get; set; }
+    // public string Name { get; set; }
+    // public string Alias { get; set; }
+    public long? Age { get; set; }
+    // public List<AddressResponse> Addresses { get; set; }
 }

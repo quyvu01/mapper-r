@@ -3,17 +3,8 @@ using MapperR.Core.Abstractions;
 
 namespace MapperR.Core.Implementations;
 
-internal sealed class MemberProfile(
-    string memberName,
-    Type sourceMemberType,
-    Type destinationMemberType,
-    LambdaExpression selector,
-    LambdaExpression path)
-    : IMemberProfile
+internal sealed class MemberProfile(LambdaExpression selector, IMemberMapInfo memberMapInfo) : IMemberProfile
 {
-    public string MemberName { get; } = memberName;
-    public Type SourceMemberType { get; } = sourceMemberType;
-    public Type DestinationMemberType { get; } = destinationMemberType;
     public LambdaExpression Selector { get; } = selector;
-    public LambdaExpression Path { get; } = path;
+    public IMemberMapInfo MemberMapInfo { get; } = memberMapInfo;
 }

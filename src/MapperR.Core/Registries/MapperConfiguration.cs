@@ -7,7 +7,7 @@ namespace MapperR.Core.Registries;
 
 internal sealed class MapperConfiguration(IServiceCollection services) : IMapperConfiguration
 {
-    public bool AllowNullCollections { get; set; }
+    public bool AllowNullCollections { private get; set; }
     private readonly HashSet<Type> _profileTypes = [];
 
     public IMapperConfiguration AddProfilesFromAssembly(Assembly assembly)
@@ -18,5 +18,13 @@ internal sealed class MapperConfiguration(IServiceCollection services) : IMapper
         return this;
     }
 
-    internal void AddProfilesToContainer() => _profileTypes.ForEach(p => services.AddSingleton(typeof(IProfile), p));
+    internal void Configure()
+    {
+        _profileTypes.ForEach(p => services.AddSingleton(typeof(IProfile), p));
+        var options = new MapperOptions
+        {
+            AllowNullCollections = AllowNullCollections,
+        };
+        services.AddSingleton<IMapperOptions>(options);
+    }
 }
