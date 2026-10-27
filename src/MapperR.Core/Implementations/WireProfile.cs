@@ -12,10 +12,12 @@ internal class WireProfile<TSource, TDestination> : IWireProfile<TSource, TDesti
     public Type DestinationType => typeof(TDestination);
     private readonly Dictionary<string, IMemberProfile> _memberProfiles = [];
     public IMemberProfile[] MemberProfiles { get; private set; } = [];
-    public ParameterExpression SourceParam { get; } = Expression.Parameter(typeof(TSource), "source");
+
+    public ParameterExpression SourceParam { get; } =
+        Expression.Parameter(typeof(TSource), $"source{typeof(TSource).Name}");
 
     public ParameterExpression DestinationParam { get; } =
-        Expression.Parameter(typeof(TDestination), "destination");
+        Expression.Parameter(typeof(TDestination), $"destination{typeof(TDestination).Name}");
 
     public IWireProfile<TSource, TDestination> ForMember<TProp>(Expression<Func<TDestination, TProp>> selector,
         [NotNull] Action<IMemberOptions<TSource, TDestination>> options)

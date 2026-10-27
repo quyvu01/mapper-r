@@ -13,14 +13,28 @@ internal abstract class AbstractInternalMapper<TDestination>
 internal sealed class InternalMapper<TSource, TDestination>(IProfileBuilder<TSource, TDestination> profileBuilder)
     : AbstractInternalMapper<TDestination>, IInternalMapper<TSource, TDestination>
 {
-    private Expression<Func<TSource, TDestination, TDestination>> _initializedProfile;
-    private Func<TSource, TDestination, TDestination> _initialFunc;
+    private LambdaExpression _initializedProfile;
+    private Func<TSource, TDestination, TDestination> _initialWithDestinationFunc;
+    private Func<TSource, TDestination> _initialWithoutDestinationFunc;
 
     public TDestination Map(TSource source)
     {
         _initializedProfile ??= profileBuilder.GetProfile();
-        _initialFunc ??= _initializedProfile.Compile();
-        return _initialFunc.Invoke(source, default);
+        if (_initializedProfile.Parameters.Count == 1)
+        {
+            _initialWithoutDestinationFunc = _initializedProfile.Compile() as Func<TSource, TDestination>;
+            ArgumentNullException.ThrowIfNull(_initialWithoutDestinationFunc);
+            return _initialWithoutDestinationFunc.Invoke(source);
+        }
+
+        if (_initializedProfile.Parameters.Count == 2)
+        {
+            _initialWithDestinationFunc = _initializedProfile.Compile() as Func<TSource, TDestination, TDestination>;
+            ArgumentNullException.ThrowIfNull(_initialWithDestinationFunc);
+            return _initialWithDestinationFunc.Invoke(source, default);
+        }
+
+        throw new NotSupportedException();
     }
 
     public TDestination Map(TSource source, TDestination destination)

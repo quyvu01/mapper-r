@@ -16,6 +16,7 @@ Expression<Func<int, long?>> k = x => x + 1;
 var n = k.Compile().Invoke(1);
 
 // var person = new Person { Name = "Abc", Addresses = [new Address { City = "Hanoi" }] };
-var person = new Person { Age = 10 };
+var person = new Person
+    { Address = new Address { City = "Hanoi", Location = "Hoan Kiem", Street = new Street { Name = "Hello" } } };
 var personResponse = mapper.Map<PersonResponse>(person);
 Console.WriteLine($"Response");
